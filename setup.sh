@@ -10,5 +10,4 @@ if ! [ -d ${ENV_PATH} ]; then
     pip install gpu4pyscf-cuda12x
     conda deactivate
 fi
-
 conda activate ${ENV_NAME}
