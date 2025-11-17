@@ -1,0 +1,82 @@
+SLURMD_NODENAME = hpc-33-16
+Start time = Fri Nov 14 03:19:37 PM PST 2025
+CUDA_VISIBLE_DEVICES = 0
+OMP_NUM_THREADS = 32
+MKL_NUM_THREADS = 4
+OPENBLAS_NUM_THREADS = 4
+PYSCF_MAX_MEMORY = 327680
+TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/54848517/
+PYSCF_TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/54848517/
+/home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/cupy/_environment.py:541: UserWarning: 
+--------------------------------------------------------------------------------
+
+  CuPy may not function correctly because multiple CuPy packages are installed
+  in your environment:
+
+    cupy, cupy-cuda12x
+
+  Follow these steps to resolve this issue:
+
+    1. For all packages listed above, run the following command to remove all
+       existing CuPy installations:
+
+         $ pip uninstall <package_name>
+
+      If you previously installed CuPy via conda, also run the following:
+
+         $ conda uninstall cupy
+
+    2. Install the appropriate CuPy package.
+       Refer to the Installation Guide for detailed instructions.
+
+         https://docs.cupy.dev/en/stable/install.html
+
+--------------------------------------------------------------------------------
+
+  warnings.warn(f'''
+OS                           : Linux-5.14.0-427.13.1.el9_4.x86_64-x86_64-with-glibc2.34
+Python Version               : 3.12.0
+CuPy Version                 : 13.4.1
+CuPy Platform                : NVIDIA CUDA
+NumPy Version                : 2.2.6
+SciPy Version                : 1.16.3
+Cython Build Version         : 3.0.12
+Cython Runtime Version       : None
+CUDA Root                    : /home/junjiey/anaconda3/envs/gpu4pyscf-occri
+nvcc PATH                    : /home/junjiey/anaconda3/envs/gpu4pyscf-occri/bin/nvcc
+CUDA Build Version           : 12080
+CUDA Driver Version          : 12080
+CUDA Runtime Version         : 12080 (linked to CuPy) / 12090 (locally installed)
+CUDA Extra Include Dirs      : []
+cuBLAS Version               : (available)
+cuFFT Version                : 11400
+cuRAND Version               : 10310
+cuSOLVER Version             : ImportError('/resnick/home/junjiey/anaconda3/envs/gpu4pyscf-occri/bin/../lib/libcublas.so.12: undefined symbol: cublasLtGetEnvironmentMode, version libcublasLt.so.12')
+cuSPARSE Version             : (available)
+NVRTC Version                : (12, 9)
+Thrust Version               : 200800
+CUB Build Version            : 200800
+Jitify Build Version         : <unknown>
+cuDNN Build Version          : (not loaded; try `import cupy.cuda.cudnn` first)
+cuDNN Version                : (not loaded; try `import cupy.cuda.cudnn` first)
+NCCL Build Version           : (not loaded; try `import cupy.cuda.nccl` first)
+NCCL Runtime Version         : (not loaded; try `import cupy.cuda.nccl` first)
+cuTENSOR Version             : 20200
+cuSPARSELt Build Version     : None
+Device 0 Name                : NVIDIA H100 80GB HBM3
+Device 0 Compute Capability  : 90
+Device 0 PCI Bus ID          : 0000:E3:00.0
+Traceback (most recent call last):
+  File "/resnick/groups/changroup/members/junjiey/occri-main/work/nio-test/main.py", line 5, in <module>
+    import pyscf, gpu4pyscf
+  File "/home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/gpu4pyscf/__init__.py", line 19, in <module>
+    from . import lib, grad, hessian, solvent, scf, dft, tdscf, nac
+  File "/home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/gpu4pyscf/lib/__init__.py", line 18, in <module>
+    from gpu4pyscf.lib import cupy_helper
+  File "/home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/gpu4pyscf/lib/cupy_helper.py", line 24, in <module>
+    from gpu4pyscf.lib.cusolver import eigh, cholesky  #NOQA
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/gpu4pyscf/lib/cusolver.py", line 20, in <module>
+    from cupy_backends.cuda.libs import cusolver
+ImportError: /resnick/home/junjiey/anaconda3/envs/gpu4pyscf-occri/bin/../lib/libcublas.so.12: undefined symbol: cublasLtGetEnvironmentMode, version libcublasLt.so.12
+End time = Fri Nov 14 03:19:42 PM PST 2025
