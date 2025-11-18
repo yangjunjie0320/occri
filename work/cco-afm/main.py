@@ -10,21 +10,17 @@ print(f"Total memory: {mem_info[1] / (1024**3):.2f} GB")
 import pyscf, gpu4pyscf
 from pyscf.pbc import gto
 import gpu4pyscf.pbc
-from gpu4pyscf.pbc.df import fft_jk
 
-pcell = gto.Cell()
-pcell.atom = """
-Ni 0.0000 0.0000 0.0000
-Ni 4.1700 4.1700 4.1700
-O  2.0850 2.0850 2.0850
-O  6.2550 6.2550 6.2550
-"""
-pcell.a = """
-4.1700 2.0850 2.0850
-2.0850 4.1700 2.0850
-2.0850 2.0850 4.1700
-"""
-pcell.unit = "A"
+import sys, pathlib
+poscar_path = pathlib.Path("/resnick/groups/changroup/members/junjiey/occri/packages/")
+poscar_path = poscar_path / "cuprate_parent_state_data/01_crystal_geometry/CCO/CCO-AFM-frac.vasp"
+assert poscar_path.exists()
+
+path = str(poscar_path)
+print(f"poscar_path: {path}")
+
+from libdmet.utils.iotools import read_poscar
+pcell = read_poscar(path)
 pcell.basis = 'gth-dzvp-molopt-sr'
 pcell.pseudo = "gth-hf-rev"
 pcell.ke_cutoff = 200
@@ -32,7 +28,7 @@ pcell.exp_to_discard = 0.1
 pcell.verbose = 5
 pcell.build()
 
-kpts = pcell.make_kpts([2, 2, 2])
+kpts = pcell.make_kpts([2, 2, 1])
 
 from gpu4pyscf.pbc.scf import KRHF, KUHF
 mf = KUHF(pcell, kpts)
@@ -52,8 +48,8 @@ mf.with_df.blksize = 4
 mf.kernel(dm0)
 ene_sol = mf.e_tot
 
-# print("ene_ref = %12.6f" % ene_ref)
-# print("ene_sol = %12.6f" % ene_sol)
-# print("error   = %6.2e" % abs(ene_ref - ene_sol))
+print("ene_ref = %12.6f" % ene_ref)
+print("ene_sol = %12.6f" % ene_sol)
+print("error   = %6.2e" % abs(ene_ref - ene_sol))
 
 print("done")

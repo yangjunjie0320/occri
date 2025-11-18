@@ -33,7 +33,9 @@ echo TMPDIR       = $TMPDIR
 echo PYSCF_TMPDIR = $PYSCF_TMPDIR
 ln -s $PYSCF_TMPDIR tmp
 
+export PYTHONPATH=/home/junjiey/work/occri/occri-main/src/:$PYTHONPATH
+
+# nsys profile --stats=true python main.py
 python main.py
-# kernprof -l -v main.py
 
 echo "End time = $(date)"

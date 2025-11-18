@@ -34,8 +34,12 @@ echo PYSCF_TMPDIR = $PYSCF_TMPDIR
 ln -s $PYSCF_TMPDIR tmp
 
 export PYTHONPATH=/home/junjiey/work/occri/occri-main/src/:$PYTHONPATH
+export PYTHONPATH=/home/junjiey/work/occri/packages/libdmet2-main/:$PYTHONPATH
 
 # nsys profile --stats=true python main.py
+# python main.py
+# which compute-sanitizer
+# compute-sanitizer --tool memcheck --leak-check full python main.py
 python main.py
 
 echo "End time = $(date)"

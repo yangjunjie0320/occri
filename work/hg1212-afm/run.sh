@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --reservation=changroup-h100-node-1
+##SBATCH --reservation=changroup-h100-node-1
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=gpu4pyscf-occri
@@ -34,6 +34,7 @@ echo PYSCF_TMPDIR = $PYSCF_TMPDIR
 ln -s $PYSCF_TMPDIR tmp
 
 export PYTHONPATH=/home/junjiey/work/occri/occri-main/src/:$PYTHONPATH
+export PYTHONPATH=/home/junjiey/work/occri/packages/libdmet2-main/:$PYTHONPATH
 
 # nsys profile --stats=true python main.py
 python main.py

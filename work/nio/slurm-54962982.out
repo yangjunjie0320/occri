@@ -1,0 +1,291 @@
+SLURMD_NODENAME = hpc-33-16
+Start time = Mon Nov 17 01:48:47 PM PST 2025
+CUDA_VISIBLE_DEVICES = 0
+OMP_NUM_THREADS = 32
+MKL_NUM_THREADS = 4
+OPENBLAS_NUM_THREADS = 4
+PYSCF_MAX_MEMORY = 327680
+TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/54962982/
+PYSCF_TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/54962982/
+Using GPU device 0
+Free memory: 78.68 GB
+Total memory: 79.19 GB
+Discarded 8 diffused primitive functions, 0 contracted functions
+#INFO: **** input file is /resnick/groups/changroup/members/junjiey/occri/occri-main/work/nio/main.py ****
+import cupy as cp
+
+device = cp.cuda.Device()
+print(f"Using GPU device {device.id}")
+
+mem_info = cp.cuda.runtime.memGetInfo()
+print(f"Free memory: {mem_info[0] / (1024**3):.2f} GB")
+print(f"Total memory: {mem_info[1] / (1024**3):.2f} GB")
+
+import pyscf, gpu4pyscf
+from pyscf.pbc import gto
+import gpu4pyscf.pbc
+from gpu4pyscf.pbc.df import fft_jk
+
+pcell = gto.Cell()
+pcell.atom = """
+Ni 0.0000 0.0000 0.0000
+Ni 4.1700 4.1700 4.1700
+O  2.0850 2.0850 2.0850
+O  6.2550 6.2550 6.2550
+"""
+pcell.a = """
+4.1700 2.0850 2.0850
+2.0850 4.1700 2.0850
+2.0850 2.0850 4.1700
+"""
+pcell.unit = "A"
+pcell.basis = 'gth-dzvp-molopt-sr'
+pcell.pseudo = "gth-hf-rev"
+pcell.ke_cutoff = 200
+pcell.exp_to_discard = 0.1
+pcell.verbose = 5
+pcell.build()
+
+kpts = pcell.make_kpts([2, 2, 2])
+
+from gpu4pyscf.pbc.scf import KRHF, KUHF
+mf = KUHF(pcell, kpts)
+mf.verbose = 5
+mf.conv_tol = 1e-6
+mf.max_cycle = 10
+mf.exxdiv = None
+dm0 = mf.get_init_guess(key='minao')
+
+# mf.kernel(dm0)
+# ene_ref = mf.e_tot
+
+from fftdf import FFTDF
+from fftdf import get_k_kpts_occri
+mf.with_df = FFTDF(pcell, kpts, with_occri=True, use_gpu=True)
+mf.with_df.blksize = 4
+mf.kernel(dm0)
+ene_sol = mf.e_tot
+
+# print("ene_ref = %12.6f" % ene_ref)
+# print("ene_sol = %12.6f" % ene_sol)
+# print("error   = %6.2e" % abs(ene_ref - ene_sol))
+
+print("done")
+#INFO: ******************** input file end ********************
+
+
+System: uname_result(system='Linux', node='hpc-33-16.cm.cluster', release='5.14.0-427.13.1.el9_4.x86_64', version='#1 SMP PREEMPT_DYNAMIC Wed Apr 10 10:29:16 EDT 2024', machine='x86_64')  Threads 32
+Python 3.12.12 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 20:16:04) [GCC 11.2.0]
+numpy 2.2.6  scipy 1.16.3  h5py 3.15.1
+Date: Mon Nov 17 13:48:51 2025
+PySCF version 2.8.0
+PySCF path  /home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/pyscf/__init__.py
+CUDA Environment
+    CuPy 13.4.1
+    CUDA Path /home/junjiey/anaconda3/envs/gpu4pyscf-occri
+    CUDA Build Version 12080
+    CUDA Driver Version 12080
+    CUDA Runtime Version 12080
+CUDA toolkit
+    cuSolver (11, 7, 2)
+    cuBLAS 120804
+    cuTENSOR 20200
+Device info
+    Device name b'NVIDIA H100 80GB HBM3'
+    Device global memory 79.19 GB
+    CuPy memory fraction 0.9
+    Num. Devices 1
+GPU4PySCF 1.4.3
+GPU4PySCF path  /home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/gpu4pyscf
+
+[ENV] PYSCF_TMPDIR /resnick/scratch/yangjunjie//gpu4pyscf-occri/54962982/
+[ENV] PYSCF_MAX_MEMORY 327680
+[CONFIG] conf_file None
+[INPUT] verbose = 5
+[INPUT] max_memory = 327680 
+[INPUT] num. atoms = 4
+[INPUT] num. electrons = 48
+[INPUT] charge = 0
+[INPUT] spin (= nelec alpha-beta = 2S) = 0
+[INPUT] symmetry False subgroup None
+[INPUT] Mole.unit = A
+[INPUT] Symbol           X                Y                Z      unit          X                Y                Z       unit  Magmom
+[INPUT]  1 Ni     0.000000000000   0.000000000000   0.000000000000 AA    0.000000000000   0.000000000000   0.000000000000 Bohr   0.0
+[INPUT]  2 Ni     4.170000000000   4.170000000000   4.170000000000 AA    7.880157939436   7.880157939436   7.880157939436 Bohr   0.0
+[INPUT]  3 O      2.085000000000   2.085000000000   2.085000000000 AA    3.940078969718   3.940078969718   3.940078969718 Bohr   0.0
+[INPUT]  4 O      6.255000000000   6.255000000000   6.255000000000 AA   11.820236909154  11.820236909154  11.820236909154 Bohr   0.0
+[INPUT] ---------------- BASIS SET ---------------- 
+[INPUT] l, kappa, [nprim/nctr], expnt,             c_1 c_2 ...
+[INPUT] O
+[INPUT] 0    0    [5    /2   ]  10.3892280183     0.1262407229 0.0692157979
+                                3.84962107201     0.1399337043 0.1156345389
+                                1.38840118874     -0.4343482317 -0.3228397194
+                                0.496955043655    -0.8527917909 -0.0959440166
+                                0.16249161504     -0.2423515378 1.1028303487
+[INPUT] 1    0    [5    /2   ]  10.3892280183     -0.0613020372 -0.0268627011
+                                3.84962107201     -0.1900875117 -0.006283021
+                                1.38840118874     -0.3777269828 -0.2248391878
+                                0.496955043655    -0.454266086 0.3803246586
+                                0.16249161504     -0.257388983 1.0541029199
+[INPUT] 2    0    [5    /1   ]  10.3892280183     0.0298452275
+                                3.84962107201     0.0609397339
+                                1.38840118874     0.7323215801
+                                0.496955043655    0.8935649184
+                                0.16249161504     0.1529541887
+[INPUT] Ni
+[INPUT] 0    0    [5    /3   ]  10.0774277568     -0.169086929207 0.022677528942 0.008641083176
+                                5.84773584833     -0.31374984113 0.057292097754 -0.136071800928
+                                2.49403282601     0.766489587737 -0.198532965699 0.002540653375
+                                0.988354848429    0.557414017577 -0.427662657827 -1.41846785564
+                                0.344978242158    0.031729942841 0.260121348436 2.55022109317
+[INPUT] 1    0    [5    /2   ]  10.0774277568     -0.126427871284 -0.005476801255
+                                5.84773584833     0.241165311699 -0.010936526817
+                                2.49403282601     0.543849904725 -0.096663192733
+                                0.988354848429    0.407338672608 -0.097657540866
+                                0.344978242158    0.053320914508 0.50842950018
+[INPUT] 2    0    [5    /2   ]  10.0774277568     0.093966508982 -0.03309828405
+                                5.84773584833     0.269388431386 -0.12702949251
+                                2.49403282601     0.374569463127 -0.196169938991
+                                0.988354848429    0.368089865298 -0.05399688986
+                                0.344978242158    0.281719022542 0.14959062972
+[INPUT] 3    0    [5    /1   ]  10.0774277568     -0.001956691144
+                                5.84773584833     0.008799010286
+                                2.49403282601     0.006398276758
+                                0.988354848429    0.204329631644
+                                0.344978242158    0.039178572608
+
+Ewald components = 9.80510726917909, -254.944819814456, 5.81295484542821
+nuclear repulsion = -239.326757699849
+number of shells = 14
+number of NR pGTOs = 250
+number of NR cGTOs = 78
+basis = gth-dzvp-molopt-sr
+ecp = {}
+CPU time:         1.96
+lattice vectors  a1 [7.880157939, 3.940078970, 3.940078970]
+                 a2 [3.940078970, 7.880157939, 3.940078970]
+                 a3 [3.940078970, 3.940078970, 7.880157939]
+dimension = 3
+low_dim_ft_type = None
+Cell volume = 244.667
+exp_to_discard = 0.1
+rcut = 18.873693607578385 (nimgs = [4 4 4])
+lattice sum = 1053 cells
+precision = 1e-08
+pseudo = gth-hf-rev
+ke_cutoff = 200
+    = [63 63 63] mesh (250047 PWs)
+
+
+******** <class 'gpu4pyscf.pbc.scf.kuhf.KUHF'> ********
+method = KUHF
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'gpu4pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-06
+SCF conv_tol_grad = None
+SCF max_cycles = 10
+direct_scf = True
+direct_scf_tol = 1e-13
+max_memory 327680 MB (current use 1334 MB)
+
+
+******** PBC SCF flags ********
+N kpts = 8
+kpts = [[ 0.          0.          0.        ]
+ [-0.19933564 -0.19933564  0.59800692]
+ [-0.19933564  0.59800692 -0.19933564]
+ [-0.39867128  0.39867128  0.39867128]
+ [ 0.59800692 -0.19933564 -0.19933564]
+ [ 0.39867128 -0.39867128  0.39867128]
+ [ 0.39867128  0.39867128 -0.39867128]
+ [ 0.19933564  0.19933564  0.19933564]]
+Exchange divergence treatment (exxdiv) = None
+DF object = <fftdf.OccRI object at 0x7f9dfe62a4b0>
+number of electrons per cell  alpha = 192 beta = 192
+cond(S) = [563.61197933 520.83264161 520.83264161 563.61197933 520.83264161
+ 563.61197933 563.61197933 572.56769639]
+Set gradient conv threshold to 0.001
+
+
+******** <class 'fftdf.OccRI'> ********
+mesh = [63 63 63] (250047 PWs)
+nkpts = 8
+nao = 78, nocc = 24, blksize = 4
+rhoR memory usage = 3.84e-01 GB
+    CPU time for vj and vk                                               0.70 sec, wall time      0.70 sec, GPU time    595.52 ms
+E1 = (-229.3828554791085-4.9832128207178335e-18j)  E_coul = (144.7186514270043+3.5499061575109864e-32j)
+init E= -323.990961751953
+    CPU time for SCF initialization                                     18.73 sec, wall time      1.98 sec, GPU time   1980.57 ms
+alpha HOMO = 1.82406635774  LUMO = 1.82406652471
+beta HOMO = 1.82406635774  LUMO = 1.82406652471
+    CPU time for vj and vk                                               9.33 sec, wall time      8.92 sec, GPU time   8922.22 ms
+E1 = (-93.70526598684378+2.2632720350634905e-15j)  E_coul = (13.709883987276353-1.9652045290564912e-15j)
+    CPU time for cycle=1                                                 9.63 sec, wall time      9.12 sec, GPU time   9116.00 ms
+cycle= 1 E= -319.322139699416  delta_E= 4.67  |g|= 32.9  |ddm|= 21.8
+alpha HOMO = 0.784756328924  LUMO = 0.784756328927
+beta HOMO = 0.784756328924  LUMO = 0.784756328927
+    CPU time for vj and vk                                               9.55 sec, wall time      9.34 sec, GPU time   9341.26 ms
+E1 = (-271.5953805725839-1.6623529809633997e-16j)  E_coul = (182.80864058061115-5.282232984349378e-16j)
+    CPU time for cycle=2                                                 9.61 sec, wall time      9.40 sec, GPU time   9404.21 ms
+cycle= 2 E= -328.113497691822  delta_E= -8.79  |g|= 23.1  |ddm|= 27.2
+alpha HOMO = 1.06967052568  LUMO = 1.06967052586
+beta HOMO = 1.06967052568  LUMO = 1.06967052586
+    CPU time for vj and vk                                               9.25 sec, wall time      8.81 sec, GPU time   8814.14 ms
+E1 = (-165.8920880784197+1.5490674064658205e-15j)  E_coul = (55.06913069219861-4.44360260393184e-16j)
+    CPU time for cycle=3                                                 9.29 sec, wall time      8.86 sec, GPU time   8856.56 ms
+cycle= 3 E= -350.14971508607  delta_E=  -22  |g|= 14.4  |ddm|= 21.4
+alpha HOMO = 1.01076739076  LUMO = 1.01079746712
+beta HOMO = 1.01076739076  LUMO = 1.01079746712
+    CPU time for vj and vk                                               9.36 sec, wall time      9.09 sec, GPU time   9091.04 ms
+E1 = (-197.47160190402784+4.1374510154762456e-16j)  E_coul = (80.53231567283797-4.253901105064767e-16j)
+    CPU time for cycle=4                                                 9.40 sec, wall time      9.13 sec, GPU time   9133.58 ms
+cycle= 4 E= -356.266043931039  delta_E= -6.12  |g|= 10.6  |ddm|= 12.8
+alpha HOMO = 1.10741094329  LUMO = 1.1101620564
+beta HOMO = 1.10741094329  LUMO = 1.1101620564
+    CPU time for vj and vk                                               9.28 sec, wall time      8.95 sec, GPU time   8948.92 ms
+E1 = (-199.61315330539904+3.7403619698034296e-16j)  E_coul = (82.3077044664885-4.163336342344337e-16j)
+    CPU time for cycle=5                                                 9.32 sec, wall time      8.99 sec, GPU time   8991.43 ms
+cycle= 5 E= -356.63220653876  delta_E= -0.366  |g|= 10.6  |ddm|= 9.16
+alpha HOMO = 0.814404859487  LUMO = 0.814424649668
+beta HOMO = 0.814404859487  LUMO = 0.814424649668
+    CPU time for vj and vk                                               9.37 sec, wall time      9.18 sec, GPU time   9184.36 ms
+E1 = (-209.16165829268718+3.339486686856387e-16j)  E_coul = (87.99234737020396-4.2066959589142847e-16j)
+    CPU time for cycle=6                                                 9.41 sec, wall time      9.23 sec, GPU time   9226.71 ms
+cycle= 6 E= -360.496068622332  delta_E= -3.86  |g|= 2.93  |ddm|= 5.57
+alpha HOMO = 0.625259210264  LUMO = 1.27749817785
+beta HOMO = 0.625259210264  LUMO = 1.27749817785
+    CPU time for vj and vk                                               9.38 sec, wall time      9.45 sec, GPU time   9447.65 ms
+E1 = (-209.63812083656757+3.0314800962463057e-16j)  E_coul = (88.16712931647213-4.2624137861846725e-16j)
+    CPU time for cycle=7                                                 9.43 sec, wall time      9.49 sec, GPU time   9490.09 ms
+cycle= 7 E= -360.797749219944  delta_E= -0.302  |g|= 1.36  |ddm|=  1.6
+alpha HOMO = 0.610934648393  LUMO = 1.26291458259
+beta HOMO = 0.610934648393  LUMO = 1.26291458259
+    CPU time for vj and vk                                               9.37 sec, wall time      9.19 sec, GPU time   9194.94 ms
+E1 = (-209.25465215654452+2.835184445884858e-16j)  E_coul = (87.68504259377457-4.222848877218424e-16j)
+    CPU time for cycle=8                                                 9.41 sec, wall time      9.24 sec, GPU time   9237.64 ms
+cycle= 8 E= -360.896367262619  delta_E= -0.0986  |g|= 0.506  |ddm|=  1.1
+alpha HOMO = 0.624169205806  LUMO = 1.2763970456
+beta HOMO = 0.624169205806  LUMO = 1.2763970456
+    CPU time for vj and vk                                               9.38 sec, wall time      9.33 sec, GPU time   9328.50 ms
+E1 = (-208.9975483039502+2.804208451003768e-16j)  E_coul = (87.39703222937528-4.3408320964414757e-16j)
+    CPU time for cycle=9                                                 9.42 sec, wall time      9.37 sec, GPU time   9371.12 ms
+cycle= 9 E= -360.927273774424  delta_E= -0.0309  |g|= 0.302  |ddm|= 0.633
+alpha HOMO = 0.635840080729  LUMO = 1.2789852481
+beta HOMO = 0.635840080729  LUMO = 1.2789852481
+    CPU time for vj and vk                                               9.37 sec, wall time      9.18 sec, GPU time   9183.26 ms
+E1 = (-208.88571384505374+2.806518733367404e-16j)  E_coul = (87.26356726651184-4.2960621700143496e-16j)
+    CPU time for cycle=10                                                9.41 sec, wall time      9.23 sec, GPU time   9226.08 ms
+cycle= 10 E= -360.948904278391  delta_E= -0.0216  |g|= 0.245  |ddm|= 0.561
+
+WARN: SCF failed to converge
+
+    CPU time for SCF                                                   113.24 sec, wall time     94.21 sec, GPU time  94207.34 ms
+SCF not converged.
+SCF energy = -360.948904278391
+done
+End time = Mon Nov 17 01:50:28 PM PST 2025

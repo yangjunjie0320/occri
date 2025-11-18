@@ -2,6 +2,7 @@ import cupy as cp
 
 device = cp.cuda.Device()
 print(f"Using GPU device {device.id}")
+
 mem_info = cp.cuda.runtime.memGetInfo()
 print(f"Free memory: {mem_info[0] / (1024**3):.2f} GB")
 print(f"Total memory: {mem_info[1] / (1024**3):.2f} GB")
@@ -9,35 +10,28 @@ print(f"Total memory: {mem_info[1] / (1024**3):.2f} GB")
 import pyscf, gpu4pyscf
 from pyscf.pbc import gto
 import gpu4pyscf.pbc
-from gpu4pyscf.pbc.df import fft_jk
 
-pcell = gto.Cell()
-pcell.a = '''
-3.5668  0.0000  0.0000
-0.0000  3.5668  0.0000
-0.0000  0.0000  3.5668
-'''
-pcell.atom = '''
-C     0.0000  0.0000  0.0000    
-C     0.8917  0.8917  0.8917
-C     1.7834  1.7834  0.0000    
-C     2.6751  2.6751  0.8917
-C     1.7834  0.0000  1.7834
-C     2.6751  0.8917  2.6751
-C     0.0000  1.7834  1.7834
-C     0.8917  2.6751  2.6751
-'''
-pcell.basis = 'gth-dzvp'
-pcell.pseudo = 'gth-hf-rev'
-pcell.verbose = 4
-pcell.ke_cutoff = 100
+import sys, pathlib
+poscar_path = pathlib.Path("/resnick/groups/changroup/members/junjiey/occri/packages/")
+poscar_path = poscar_path / "cuprate_parent_state_data/01_crystal_geometry/CCO/CCO-2x2-frac.vasp"
+assert poscar_path.exists()
+
+path = str(poscar_path)
+print(f"poscar_path: {path}")
+
+from libdmet.utils.iotools import read_poscar
+pcell = read_poscar(path)
+pcell.basis = 'gth-dzvp-molopt-sr'
+pcell.pseudo = "gth-hf-rev"
+pcell.ke_cutoff = 200
 pcell.exp_to_discard = 0.1
+pcell.verbose = 5
 pcell.build()
 
-kpts = pcell.make_kpts([2, 2, 2])
+kpts = pcell.make_kpts([2, 2, 1])
 
 from gpu4pyscf.pbc.scf import KRHF, KUHF
-mf = KRHF(pcell, kpts)
+mf = KUHF(pcell, kpts)
 mf.verbose = 5
 mf.conv_tol = 1e-6
 mf.max_cycle = 10

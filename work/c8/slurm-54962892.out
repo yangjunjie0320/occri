@@ -1,0 +1,4829 @@
+SLURMD_NODENAME = hpc-33-16
+Start time = Mon Nov 17 01:46:12 PM PST 2025
+CUDA_VISIBLE_DEVICES = 0
+OMP_NUM_THREADS = 32
+MKL_NUM_THREADS = 4
+OPENBLAS_NUM_THREADS = 4
+PYSCF_MAX_MEMORY = 327680
+TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/54962892/
+PYSCF_TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/54962892/
+Using GPU device 0
+Free memory: 78.68 GB
+Total memory: 79.19 GB
+#INFO: **** input file is /resnick/groups/changroup/members/junjiey/occri/occri-main/work/c8/main.py ****
+import cupy as cp
+
+device = cp.cuda.Device()
+print(f"Using GPU device {device.id}")
+mem_info = cp.cuda.runtime.memGetInfo()
+print(f"Free memory: {mem_info[0] / (1024**3):.2f} GB")
+print(f"Total memory: {mem_info[1] / (1024**3):.2f} GB")
+
+import pyscf, gpu4pyscf
+from pyscf.pbc import gto
+import gpu4pyscf.pbc
+from gpu4pyscf.pbc.df import fft_jk
+
+pcell = gto.Cell()
+pcell.a = '''
+3.5668  0.0000  0.0000
+0.0000  3.5668  0.0000
+0.0000  0.0000  3.5668
+'''
+pcell.atom = '''
+C     0.0000  0.0000  0.0000    
+C     0.8917  0.8917  0.8917
+C     1.7834  1.7834  0.0000    
+C     2.6751  2.6751  0.8917
+C     1.7834  0.0000  1.7834
+C     2.6751  0.8917  2.6751
+C     0.0000  1.7834  1.7834
+C     0.8917  2.6751  2.6751
+'''
+pcell.basis = 'gth-dzvp'
+pcell.pseudo = 'gth-hf-rev'
+pcell.verbose = 4
+pcell.ke_cutoff = 100
+pcell.exp_to_discard = 0.1
+pcell.build()
+
+kpts = pcell.make_kpts([2, 2, 2])
+
+from gpu4pyscf.pbc.scf import KRHF, KUHF
+mf = KRHF(pcell, kpts)
+mf.verbose = 5
+mf.conv_tol = 1e-6
+mf.max_cycle = 10
+mf.exxdiv = None
+dm0 = mf.get_init_guess(key='minao')
+
+# mf.kernel(dm0)
+# ene_ref = mf.e_tot
+
+from fftdf import FFTDF
+from fftdf import get_k_kpts_occri
+mf.with_df = FFTDF(pcell, kpts, with_occri=True, use_gpu=True)
+mf.with_df.blksize = 4
+mf.kernel(dm0)
+ene_sol = mf.e_tot
+
+# print("ene_ref = %12.6f" % ene_ref)
+# print("ene_sol = %12.6f" % ene_sol)
+# print("error   = %6.2e" % abs(ene_ref - ene_sol))
+
+print("done")
+#INFO: ******************** input file end ********************
+
+
+System: uname_result(system='Linux', node='hpc-33-16.cm.cluster', release='5.14.0-427.13.1.el9_4.x86_64', version='#1 SMP PREEMPT_DYNAMIC Wed Apr 10 10:29:16 EDT 2024', machine='x86_64')  Threads 32
+Python 3.12.12 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 20:16:04) [GCC 11.2.0]
+numpy 2.2.6  scipy 1.16.3  h5py 3.15.1
+Date: Mon Nov 17 13:46:16 2025
+PySCF version 2.8.0
+PySCF path  /home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/pyscf/__init__.py
+CUDA Environment
+    CuPy 13.4.1
+    CUDA Path /home/junjiey/anaconda3/envs/gpu4pyscf-occri
+    CUDA Build Version 12080
+    CUDA Driver Version 12080
+    CUDA Runtime Version 12080
+CUDA toolkit
+    cuSolver (11, 7, 2)
+    cuBLAS 120804
+    cuTENSOR 20200
+Device info
+    Device name b'NVIDIA H100 80GB HBM3'
+    Device global memory 79.19 GB
+    CuPy memory fraction 0.9
+    Num. Devices 1
+GPU4PySCF 1.4.3
+GPU4PySCF path  /home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/gpu4pyscf
+
+[ENV] PYSCF_TMPDIR /resnick/scratch/yangjunjie//gpu4pyscf-occri/54962892/
+[ENV] PYSCF_MAX_MEMORY 327680
+[CONFIG] conf_file None
+[INPUT] verbose = 4
+[INPUT] num. atoms = 8
+[INPUT] num. electrons = 32
+[INPUT] charge = 0
+[INPUT] spin (= nelec alpha-beta = 2S) = 0
+[INPUT] symmetry False subgroup None
+[INPUT] Mole.unit = angstrom
+[INPUT] Symbol           X                Y                Z      unit          X                Y                Z       unit  Magmom
+[INPUT]  1 C      0.000000000000   0.000000000000   0.000000000000 AA    0.000000000000   0.000000000000   0.000000000000 Bohr   0.0
+[INPUT]  2 C      0.891700000000   0.891700000000   0.891700000000 AA    1.685068785275   1.685068785275   1.685068785275 Bohr   0.0
+[INPUT]  3 C      1.783400000000   1.783400000000   0.000000000000 AA    3.370137570549   3.370137570549   0.000000000000 Bohr   0.0
+[INPUT]  4 C      2.675100000000   2.675100000000   0.891700000000 AA    5.055206355824   5.055206355824   1.685068785275 Bohr   0.0
+[INPUT]  5 C      1.783400000000   0.000000000000   1.783400000000 AA    3.370137570549   0.000000000000   3.370137570549 Bohr   0.0
+[INPUT]  6 C      2.675100000000   0.891700000000   2.675100000000 AA    5.055206355824   1.685068785275   5.055206355824 Bohr   0.0
+[INPUT]  7 C      0.000000000000   1.783400000000   1.783400000000 AA    0.000000000000   3.370137570549   3.370137570549 Bohr   0.0
+[INPUT]  8 C      0.891700000000   2.675100000000   2.675100000000 AA    1.685068785275   5.055206355824   5.055206355824 Bohr   0.0
+
+nuclear repulsion = -51.1485165824969
+number of shells = 24
+number of NR pGTOs = 168
+number of NR cGTOs = 104
+basis = gth-dzvp
+ecp = {}
+CPU time:         1.78
+lattice vectors  a1 [6.740275141, 0.000000000, 0.000000000]
+                 a2 [0.000000000, 6.740275141, 0.000000000]
+                 a3 [0.000000000, 0.000000000, 6.740275141]
+dimension = 3
+low_dim_ft_type = None
+Cell volume = 306.22
+exp_to_discard = 0.1
+rcut = 22.07448407082675 (nimgs = [4 4 4])
+lattice sum = 365 cells
+precision = 1e-08
+pseudo = gth-hf-rev
+ke_cutoff = 100
+    = [33 33 33] mesh (35937 PWs)
+
+
+******** <class 'gpu4pyscf.pbc.scf.khf.KRHF'> ********
+method = KRHF
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'gpu4pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 8
+diis_damp = 0
+SCF conv_tol = 1e-06
+SCF conv_tol_grad = None
+SCF max_cycles = 10
+direct_scf = True
+direct_scf_tol = 1e-13
+max_memory 327680 MB (current use 1253 MB)
+
+
+******** PBC SCF flags ********
+N kpts = 8
+kpts = [[0.         0.         0.        ]
+ [0.         0.         0.46609264]
+ [0.         0.46609264 0.        ]
+ [0.         0.46609264 0.46609264]
+ [0.46609264 0.         0.        ]
+ [0.46609264 0.         0.46609264]
+ [0.46609264 0.46609264 0.        ]
+ [0.46609264 0.46609264 0.46609264]]
+Exchange divergence treatment (exxdiv) = None
+DF object = <fftdf.OccRI object at 0x7f5ad89bc7d0>
+cond(S) = [38043742.00768211  2734915.54559409  2734915.5456125    624894.20421697
+  2734915.54550449   624894.20426318   624894.20423157   209084.24478848]
+Set gradient conv threshold to 0.001
+
+
+******** <class 'fftdf.OccRI'> ********
+mesh = [33 33 33] (35937 PWs)
+nkpts = 8
+nao = 104, nocc = 16
+blksize = 4
+rhoR memory usage = 3.68e-02 GB
+    CPU time for vj and vk                                               0.06 sec, wall time      0.06 sec, GPU time     47.45 ms
+E1 = (15.52031957526588+3.632016603819532e-17j)  E_coul = (2.5403951656325887+2.6879038687583863e-34j)
+init E= -33.0878018415984
+    CPU time for SCF initialization                                      4.30 sec, wall time      0.28 sec, GPU time    283.58 ms
+HOMO = 1.04588661625  LUMO = 1.1598293927
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+    CPU time for vj and vk                                               0.75 sec, wall time      0.77 sec, GPU time    772.25 ms
+E1 = (16.51632962095741-9.481012400289854e-16j)  E_coul = (-6.011656109522464-2.1085901299281346e-16j)
+    CPU time for cycle=1                                                 0.79 sec, wall time      0.84 sec, GPU time    844.47 ms
+cycle= 1 E= -40.643843071062  delta_E= -7.56  |g|= 1.55  |ddm|=  252
+HOMO = 0.581970840885  LUMO = 1.16022005266
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+    CPU time for vj and vk                                               0.73 sec, wall time      0.73 sec, GPU time    735.35 ms
+E1 = (16.12815367584339-2.0523147843466026e-16j)  E_coul = (-5.734131119836429-2.42515243369385e-16j)
+    CPU time for cycle=2                                                 0.78 sec, wall time      0.79 sec, GPU time    788.53 ms
+cycle= 2 E= -40.7544940264899  delta_E= -0.111  |g|= 0.371  |ddm|=  146
+HOMO = 0.588023250638  LUMO = 1.14905878884
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+    CPU time for vj and vk                                               0.73 sec, wall time      0.74 sec, GPU time    737.39 ms
+E1 = (16.103719342500366-2.3331467228633405e-16j)  E_coul = (-5.716849284109249-4.1768313172460647e-16j)
+    CPU time for cycle=3                                                 0.76 sec, wall time      0.76 sec, GPU time    764.88 ms
+cycle= 3 E= -40.7616465241058  delta_E= -0.00715  |g|= 0.0686  |ddm|= 11.3
+HOMO = 0.58526734282  LUMO = 1.14681357609
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+    CPU time for vj and vk                                               0.73 sec, wall time      0.74 sec, GPU time    737.41 ms
+E1 = (16.097969031860025-2.33086602086615e-16j)  E_coul = (-5.711390338598025-2.2652061173324364e-16j)
+    CPU time for cycle=4                                                 0.76 sec, wall time      0.77 sec, GPU time    765.20 ms
+cycle= 4 E= -40.7619378892349  delta_E= -0.000291  |g|= 0.00753  |ddm|= 0.911
+HOMO = 0.58513044489  LUMO = 1.14660195238
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+    CPU time for vj and vk                                               0.73 sec, wall time      0.74 sec, GPU time    738.44 ms
+E1 = (16.097903554637988-2.32479654098703e-16j)  E_coul = (-5.711328536675101-3.5728526534719977e-16j)
+    CPU time for cycle=5                                                 0.76 sec, wall time      0.77 sec, GPU time    766.27 ms
+cycle= 5 E= -40.761941564534  delta_E= -3.68e-06  |g|= 0.000828  |ddm|= 0.271
+HOMO = 0.585114429817  LUMO = 1.14660636469
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+rhoR.shape: (64, 35937)
+rhoR.size: 2299968
+rhoR.nbytes: 36799488
+    CPU time for vj and vk                                               0.73 sec, wall time      0.74 sec, GPU time    737.04 ms
+E1 = (16.09788979423007-2.32220033168932e-16j)  E_coul = (-5.711314820000815-2.5525843964333904e-16j)
+    CPU time for cycle=6                                                 0.76 sec, wall time      0.76 sec, GPU time    764.93 ms
+cycle= 6 E= -40.7619416082676  delta_E= -4.37e-08  |g|= 5.73e-05  |ddm|= 0.06
+    CPU time for SCF                                                     8.99 sec, wall time      5.06 sec, GPU time   5060.53 ms
+converged SCF energy = -40.7619416082676
+done
+End time = Mon Nov 17 01:46:24 PM PST 2025
