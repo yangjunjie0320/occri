@@ -45,6 +45,8 @@ def get_k_kpts_occri(mydf, dm_kpts, hermi=1, kpts=np.zeros((1,3)),
     ngrids = coords.shape[0]
 
     assert hermi == 1
+    assert kpts_band is None
+    input_band = None
 
     kpts = np.asarray(kpts)
     dm_kpts = cp.asarray(dm_kpts, order='C')
@@ -53,13 +55,11 @@ def get_k_kpts_occri(mydf, dm_kpts, hermi=1, kpts=np.zeros((1,3)),
 
     weight = (cell.vol / ngrids) / nkpts 
 
-    kpts_band, input_band = _format_kpts_band(kpts_band, kpts), kpts_band
-    nband = len(kpts_band)
-
     dtype = np.complex128
-    if is_zero(kpts_band) and is_zero(kpts):
+    if is_zero(kpts):
         dtype = dms.dtype
-    vk_kpts = cp.zeros((nset, nband, nao, nao), dtype=dtype)
+    assert dtype in [np.float64, np.complex128]
+    vk_kpts = cp.zeros((nset, nkpts, nao, nao), dtype=dtype)
 
     mo_coeff = getattr(dm_kpts, 'mo_coeff', None)
     mo_occ = getattr(dm_kpts, 'mo_occ', None)
@@ -72,19 +72,23 @@ def get_k_kpts_occri(mydf, dm_kpts, hermi=1, kpts=np.zeros((1,3)),
     blksize = mydf.blksize
     from gpu4pyscf.pbc.dft.numint import eval_ao
     for s in range(nset):
-        for k1 in range(nband):
-            kpt1 = kpts_band[k1]
+        cocc_kpts = []
+        nocc_kpts = []
+        for k in range(nkpts):
+            mask = mo_occ[s, k] > 0
+            cocc_kpts.append(mo_coeff[s, k][:, mask])
+            nocc_kpts.append(mo_occ[s, k][mask])
+
+        for k1 in range(nkpts):
+            kpt1 = kpts[k1]
             ao1 = eval_ao(cell, coords, kpt=kpt1)
 
-            mask = mo_occ[s, k1] > 0
-            cocc1 = mo_coeff[s, k1][:, mask]
-            
+            cocc1 = cocc_kpts[k1]            
             mo1 = cp.dot(ao1, cocc1)
-            mo1T = mo1.T
-            nmo1 = mo1T.shape[0]
+            nmo1 = mo1.shape[1]
+            mo1T = mo1.T.reshape(nmo1, 1, ngrids)
 
-            vr_dm = cp.zeros((nmo1, ngrids), dtype=dtype)
-            buffer = cp.zeros((blksize, ngrids), dtype=dtype)
+            vR_dm = cp.zeros((nmo1, ngrids), dtype=dtype)
             for k2 in range(nkpts):
                 kpt2 = kpts[k2]
                 ao2 = eval_ao(cell, coords, kpt=kpt2)
@@ -96,18 +100,32 @@ def get_k_kpts_occri(mydf, dm_kpts, hermi=1, kpts=np.zeros((1,3)),
                     k21 = cp.asarray(k21)
                     theta = cp.dot(coords, k21)
                     phase = cp.exp(-1j * theta)
-                    ao2 *= phase.reshape(-1, 1)
+                    ao2 = ao2 * phase.reshape(-1, 1)
 
-                mask = mo_occ[s, k2] > 0
-                cocc2 = mo_coeff[s, k2][:, mask]
-                mo2 = cp.dot(ao2, cocc2 * mo_occ[s, k2][mask] ** 0.5)
-                mo2T = mo2.T
+                cocc2 = cocc_kpts[k2]
+                mo2 = cp.dot(ao2, cocc2 * nocc_kpts[k2] ** 0.5)
+                nmo2 = mo2.shape[1]
+                mo2T = mo2.T.reshape(1, nmo2, ngrids)
 
-                vR_dot_dm._version1(vr_dm, buffer, mo1T, mo2T, coulg, mesh)
+                for i0, i1 in lib.prange(0, nmo1, blksize):
+                    rhoR = mo1T[i0:i1].conj() * mo2T
+                    rhoR = rhoR.reshape(-1, ngrids)
+
+                    rhoG = tools.fft(rhoR, mesh)
+                    vG = rhoG * coulg
+                    rhoR = rhoG = None
+
+                    vR = tools.ifft(vG, mesh).reshape(i1 - i0, nmo2, ngrids)
+                    vR_dm_i0i1 = contract('ijg,jg->ig', vR, mo2T[0].conj())
+                    vR = vG = None
+
+                    if dtype == np.float64:
+                        vR_dm_i0i1 = vR_dm_i0i1.real
+                    vR_dm[i0:i1] += vR_dm_i0i1
             
             ovlp1 = mydf.ovlp_kpts[k1]
-            vk_k1 = cp.dot(vr_dm, ao1) * weight
-            vk_kpts[s, k1] += get_full_jks(ovlp1, vk_k1, cocc1)
+            vk_k1 = cp.dot(vR_dm, ao1) * weight
+            vk_kpts[s, k1] = get_full_jks(ovlp1, vk_k1, cocc1)
 
     if exxdiv == 'ewald':
         from gpu4pyscf.pbc.df.df_jk import _ewald_exxdiv_for_G0
@@ -181,7 +199,7 @@ class OccRI(fft.FFTDF):
 
         return vj, vk
 
-    def get_pp(self, kpts=None):
-        import get_pp
-        return get_pp.get_pp(self, kpts)
+    # def get_pp(self, kpts=None):
+    #     import get_pp
+    #     return get_pp.get_pp(self, kpts)
         

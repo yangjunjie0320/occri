@@ -44,18 +44,17 @@ mf.max_cycle = 10
 mf.exxdiv = None
 dm0 = mf.get_init_guess(key='minao')
 
-# mf.kernel(dm0)
-# ene_ref = mf.e_tot
+mf.kernel(dm0)
+ene_ref = mf.e_tot
 
 from fftdf import FFTDF
-from fftdf import get_k_kpts_occri
 mf.with_df = FFTDF(pcell, kpts, with_occri=True, use_gpu=True)
 mf.with_df.blksize = 4
 mf.kernel(dm0)
 ene_sol = mf.e_tot
 
-# print("ene_ref = %12.6f" % ene_ref)
-# print("ene_sol = %12.6f" % ene_sol)
-# print("error   = %6.2e" % abs(ene_ref - ene_sol))
+print("ene_ref = %12.6f" % ene_ref)
+print("ene_sol = %12.6f" % ene_sol)
+print("error   = %6.2e" % abs(ene_ref - ene_sol))
 
 print("done")

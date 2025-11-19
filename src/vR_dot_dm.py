@@ -7,7 +7,7 @@ def get_full_jks(s, v, c):
     ccs = cp.dot(c, sc.T.conj())
     scv = cp.dot(sc, v)
     u = scv + scv.T.conj()
-    u -= cp.dot(u, ccs)
+    u -= cp.dot(scv, ccs)
     return u
 
 def _version1(out, buffer, mo1T, mo2T, coulg, mesh=None):
