@@ -1,0 +1,877 @@
+SLURMD_NODENAME = hpc-33-16
+Start time = Tue Nov 18 10:48:29 PM PST 2025
+CUDA_VISIBLE_DEVICES = 0
+OMP_NUM_THREADS = 32
+MKL_NUM_THREADS = 4
+OPENBLAS_NUM_THREADS = 4
+PYSCF_MAX_MEMORY = 327680
+TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/55007302/
+PYSCF_TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/55007302/
+Using GPU device 0
+Free memory: 78.68 GB
+Total memory: 79.19 GB
+Discarded 8 diffused primitive functions, 0 contracted functions
+#INFO: **** input file is /resnick/groups/changroup/members/junjiey/occri/occri-main/work/nio/main.py ****
+import cupy as cp
+
+device = cp.cuda.Device()
+print(f"Using GPU device {device.id}")
+
+mem_info = cp.cuda.runtime.memGetInfo()
+print(f"Free memory: {mem_info[0] / (1024**3):.2f} GB")
+print(f"Total memory: {mem_info[1] / (1024**3):.2f} GB")
+
+import pyscf, gpu4pyscf
+from pyscf.pbc import gto
+import gpu4pyscf.pbc
+from gpu4pyscf.pbc.df import fft_jk
+
+pcell = gto.Cell()
+pcell.atom = """
+Ni 0.0000 0.0000 0.0000
+Ni 4.1700 4.1700 4.1700
+O  2.0850 2.0850 2.0850
+O  6.2550 6.2550 6.2550
+"""
+pcell.a = """
+4.1700 2.0850 2.0850
+2.0850 4.1700 2.0850
+2.0850 2.0850 4.1700
+"""
+pcell.unit = "A"
+pcell.basis = 'gth-dzvp-molopt-sr'
+pcell.pseudo = "gth-hf-rev"
+pcell.ke_cutoff = 200
+pcell.exp_to_discard = 0.1
+pcell.verbose = 5
+pcell.build()
+
+kpts = pcell.make_kpts([1, 1, 1])
+
+alph_label = ["0 Ni 3dx2-y2"]
+beta_label = ["1 Ni 3dx2-y2"]
+alph_ix = pcell.search_ao_label(alph_label)
+beta_ix = pcell.search_ao_label(beta_label)
+
+from gpu4pyscf.pbc.scf import KRHF, KUHF
+mf = KUHF(pcell, kpts)
+mf.verbose = 5
+mf.conv_tol = 1e-6
+mf.max_cycle = 50
+mf.diis_space = 4
+mf.exxdiv = None
+dm0 = mf.get_init_guess(key='minao')
+
+dm0[0, :, alph_ix, alph_ix] *= 2.0
+dm0[1, :, beta_ix, beta_ix] *= 2.0
+dm0[0, :, beta_ix, beta_ix] *= 0.0
+dm0[1, :, alph_ix, alph_ix] *= 0.0
+
+from fftdf import FFTDF
+mf.with_df = FFTDF(pcell, kpts, with_occri=True, use_gpu=True)
+mf.with_df.blksize = 4
+mf.kernel(dm0)
+ene_sol = mf.e_tot
+
+dm0 = mf.make_rdm1()
+
+from gpu4pyscf.pbc.df.fft import FFTDF
+mf.with_df = FFTDF(pcell, kpts)
+mf.kernel(dm0)
+ene_ref = mf.e_tot
+
+print("ene_ref = %12.6f" % ene_ref)
+print("ene_sol = %12.6f" % ene_sol)
+print("error   = %6.2e" % abs(ene_ref - ene_sol))#INFO: ******************** input file end ********************
+
+
+System: uname_result(system='Linux', node='hpc-33-16.cm.cluster', release='5.14.0-427.13.1.el9_4.x86_64', version='#1 SMP PREEMPT_DYNAMIC Wed Apr 10 10:29:16 EDT 2024', machine='x86_64')  Threads 32
+Python 3.12.12 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 20:16:04) [GCC 11.2.0]
+numpy 2.2.6  scipy 1.16.3  h5py 3.15.1
+Date: Tue Nov 18 22:48:33 2025
+PySCF version 2.8.0
+PySCF path  /home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/pyscf/__init__.py
+CUDA Environment
+    CuPy 13.4.1
+    CUDA Path /home/junjiey/anaconda3/envs/gpu4pyscf-occri
+    CUDA Build Version 12080
+    CUDA Driver Version 12080
+    CUDA Runtime Version 12080
+CUDA toolkit
+    cuSolver (11, 7, 2)
+    cuBLAS 120804
+    cuTENSOR 20200
+Device info
+    Device name b'NVIDIA H100 80GB HBM3'
+    Device global memory 79.19 GB
+    CuPy memory fraction 0.9
+    Num. Devices 1
+GPU4PySCF 1.4.3
+GPU4PySCF path  /home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/gpu4pyscf
+
+[ENV] PYSCF_TMPDIR /resnick/scratch/yangjunjie//gpu4pyscf-occri/55007302/
+[ENV] PYSCF_MAX_MEMORY 327680
+[CONFIG] conf_file None
+[INPUT] verbose = 5
+[INPUT] max_memory = 327680 
+[INPUT] num. atoms = 4
+[INPUT] num. electrons = 48
+[INPUT] charge = 0
+[INPUT] spin (= nelec alpha-beta = 2S) = 0
+[INPUT] symmetry False subgroup None
+[INPUT] Mole.unit = A
+[INPUT] Symbol           X                Y                Z      unit          X                Y                Z       unit  Magmom
+[INPUT]  1 Ni     0.000000000000   0.000000000000   0.000000000000 AA    0.000000000000   0.000000000000   0.000000000000 Bohr   0.0
+[INPUT]  2 Ni     4.170000000000   4.170000000000   4.170000000000 AA    7.880157939436   7.880157939436   7.880157939436 Bohr   0.0
+[INPUT]  3 O      2.085000000000   2.085000000000   2.085000000000 AA    3.940078969718   3.940078969718   3.940078969718 Bohr   0.0
+[INPUT]  4 O      6.255000000000   6.255000000000   6.255000000000 AA   11.820236909154  11.820236909154  11.820236909154 Bohr   0.0
+[INPUT] ---------------- BASIS SET ---------------- 
+[INPUT] l, kappa, [nprim/nctr], expnt,             c_1 c_2 ...
+[INPUT] O
+[INPUT] 0    0    [5    /2   ]  10.3892280183     0.1262407229 0.0692157979
+                                3.84962107201     0.1399337043 0.1156345389
+                                1.38840118874     -0.4343482317 -0.3228397194
+                                0.496955043655    -0.8527917909 -0.0959440166
+                                0.16249161504     -0.2423515378 1.1028303487
+[INPUT] 1    0    [5    /2   ]  10.3892280183     -0.0613020372 -0.0268627011
+                                3.84962107201     -0.1900875117 -0.006283021
+                                1.38840118874     -0.3777269828 -0.2248391878
+                                0.496955043655    -0.454266086 0.3803246586
+                                0.16249161504     -0.257388983 1.0541029199
+[INPUT] 2    0    [5    /1   ]  10.3892280183     0.0298452275
+                                3.84962107201     0.0609397339
+                                1.38840118874     0.7323215801
+                                0.496955043655    0.8935649184
+                                0.16249161504     0.1529541887
+[INPUT] Ni
+[INPUT] 0    0    [5    /3   ]  10.0774277568     -0.169086929207 0.022677528942 0.008641083176
+                                5.84773584833     -0.31374984113 0.057292097754 -0.136071800928
+                                2.49403282601     0.766489587737 -0.198532965699 0.002540653375
+                                0.988354848429    0.557414017577 -0.427662657827 -1.41846785564
+                                0.344978242158    0.031729942841 0.260121348436 2.55022109317
+[INPUT] 1    0    [5    /2   ]  10.0774277568     -0.126427871284 -0.005476801255
+                                5.84773584833     0.241165311699 -0.010936526817
+                                2.49403282601     0.543849904725 -0.096663192733
+                                0.988354848429    0.407338672608 -0.097657540866
+                                0.344978242158    0.053320914508 0.50842950018
+[INPUT] 2    0    [5    /2   ]  10.0774277568     0.093966508982 -0.03309828405
+                                5.84773584833     0.269388431386 -0.12702949251
+                                2.49403282601     0.374569463127 -0.196169938991
+                                0.988354848429    0.368089865298 -0.05399688986
+                                0.344978242158    0.281719022542 0.14959062972
+[INPUT] 3    0    [5    /1   ]  10.0774277568     -0.001956691144
+                                5.84773584833     0.008799010286
+                                2.49403282601     0.006398276758
+                                0.988354848429    0.204329631644
+                                0.344978242158    0.039178572608
+
+Ewald components = 9.80510726917909, -254.944819814456, 5.81295484542821
+nuclear repulsion = -239.326757699849
+number of shells = 14
+number of NR pGTOs = 250
+number of NR cGTOs = 78
+basis = gth-dzvp-molopt-sr
+ecp = {}
+CPU time:         1.92
+lattice vectors  a1 [7.880157939, 3.940078970, 3.940078970]
+                 a2 [3.940078970, 7.880157939, 3.940078970]
+                 a3 [3.940078970, 3.940078970, 7.880157939]
+dimension = 3
+low_dim_ft_type = None
+Cell volume = 244.667
+exp_to_discard = 0.1
+rcut = 18.873693607578385 (nimgs = [4 4 4])
+lattice sum = 1053 cells
+precision = 1e-08
+pseudo = gth-hf-rev
+ke_cutoff = 200
+    = [63 63 63] mesh (250047 PWs)
+Big error detected in the electron number of initial guess density matrix (Ne/cell = 23.9026)!
+  This can cause huge error in Fock matrix and lead to instability in SCF for low-dimensional systems.
+  DM is normalized wrt the number of electrons [24. 24.]
+
+
+******** <class 'gpu4pyscf.pbc.scf.kuhf.KUHF'> ********
+method = KUHF
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'gpu4pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 4
+diis_damp = 0
+SCF conv_tol = 1e-06
+SCF conv_tol_grad = None
+SCF max_cycles = 50
+direct_scf = True
+direct_scf_tol = 1e-13
+max_memory 327680 MB (current use 810 MB)
+
+
+******** PBC SCF flags ********
+N kpts = 1
+kpts = [[0. 0. 0.]]
+Exchange divergence treatment (exxdiv) = None
+DF object = <fftdf.OccRI object at 0x7fbedb8c82f0>
+number of electrons per cell  alpha = 24 beta = 24
+cond(S) = [563.61197933]
+Set gradient conv threshold to 0.001
+
+
+******** <class 'fftdf.OccRI'> ********
+mesh = [63 63 63] (250047 PWs)
+nkpts = 1
+nao = 78, nocc = 24, blksize = 4
+rhoR memory usage = 3.84e-01 GB
+ao_kpts memory usage = 3.12e-01 GB
+    CPU time for vj and vk                                               0.39 sec, wall time      0.30 sec, GPU time    178.08 ms
+E1 = -230.626341098491  E_coul = 146.1255620370553
+init E= -323.827536761285
+    CPU time for SCF initialization                                      7.19 sec, wall time      3.45 sec, GPU time   3447.18 ms
+alpha HOMO = 1.71499829604  LUMO = 1.79539847534
+beta HOMO = 1.71499829604  LUMO = 1.79539847534
+    CPU time for vj and vk                                               0.55 sec, wall time      0.22 sec, GPU time    215.46 ms
+E1 = -89.8157691397499  E_coul = 15.543797221366797
+    CPU time for cycle=1                                                 0.65 sec, wall time      0.24 sec, GPU time    244.90 ms
+cycle= 1 E= -313.598729618232  delta_E= 10.2  |g|= 12.3  |ddm|=  7.2
+alpha HOMO = 1.07893897821  LUMO = 1.07893897821
+beta HOMO = 1.07893897821  LUMO = 1.07893897821
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    194.55 ms
+E1 = -272.4548219330046  E_coul = 186.21858837963316
+    CPU time for cycle=2                                                 0.56 sec, wall time      0.21 sec, GPU time    208.48 ms
+cycle= 2 E= -325.56299125322  delta_E=  -12  |g|= 7.77  |ddm|= 9.35
+alpha HOMO = 1.14500684347  LUMO = 1.21600771203
+beta HOMO = 1.14500684347  LUMO = 1.21600771203
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    191.14 ms
+E1 = -153.96961648457457  E_coul = 50.0747310675629
+    CPU time for cycle=3                                                 0.54 sec, wall time      0.20 sec, GPU time    199.31 ms
+cycle= 3 E= -343.221643116861  delta_E= -17.7  |g|= 5.88  |ddm|= 7.67
+alpha HOMO = 1.14643076897  LUMO = 1.147346725
+beta HOMO = 1.14643076897  LUMO = 1.147346725
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    191.01 ms
+E1 = -187.6132285551617  E_coul = 72.55139873824176
+    CPU time for cycle=4                                                 0.55 sec, wall time      0.20 sec, GPU time    199.75 ms
+cycle= 4 E= -354.388587516769  delta_E= -11.2  |g|= 2.11  |ddm|= 3.94
+alpha HOMO = 0.942200545029  LUMO = 1.31016109295
+beta HOMO = 0.942200545029  LUMO = 1.31016109295
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.10 ms
+E1 = -198.2461836971698  E_coul = 82.05655451513553
+    CPU time for cycle=5                                                 0.54 sec, wall time      0.20 sec, GPU time    197.54 ms
+cycle= 5 E= -355.516386881883  delta_E= -1.13  |g|= 0.894  |ddm|= 1.06
+alpha HOMO = 0.987350134847  LUMO = 1.39219844128
+beta HOMO = 0.987350134847  LUMO = 1.39219844128
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    191.16 ms
+E1 = -203.99978897055053  E_coul = 87.49233236665371
+    CPU time for cycle=6                                                 0.55 sec, wall time      0.20 sec, GPU time    199.53 ms
+cycle= 6 E= -355.834214303746  delta_E= -0.318  |g|= 0.211  |ddm|= 0.788
+alpha HOMO = 0.961757596995  LUMO = 1.4052162307
+beta HOMO = 0.961757596995  LUMO = 1.4052162307
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    191.14 ms
+E1 = -205.3015812225981  E_coul = 88.76272167935717
+    CPU time for cycle=7                                                 0.55 sec, wall time      0.20 sec, GPU time    199.46 ms
+cycle= 7 E= -355.86561724309  delta_E= -0.0314  |g|= 0.136  |ddm|= 0.244
+alpha HOMO = 0.96279014483  LUMO = 1.43144574827
+beta HOMO = 0.96279014483  LUMO = 1.43144574827
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    188.26 ms
+E1 = -205.31150554125202  E_coul = 88.7536849939833
+    CPU time for cycle=8                                                 0.54 sec, wall time      0.20 sec, GPU time    196.62 ms
+cycle= 8 E= -355.884578247118  delta_E= -0.019  |g|= 0.0682  |ddm|= 0.197
+alpha HOMO = 0.963676778559  LUMO = 1.4401427285
+beta HOMO = 0.963676778559  LUMO = 1.4401427285
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    190.86 ms
+E1 = -205.54094318829755  E_coul = 88.97848963487776
+    CPU time for cycle=9                                                 0.55 sec, wall time      0.20 sec, GPU time    199.21 ms
+cycle= 9 E= -355.889211253269  delta_E= -0.00463  |g|= 0.102  |ddm|= 0.147
+alpha HOMO = 0.963778408148  LUMO = 1.43994774923
+beta HOMO = 0.963778408148  LUMO = 1.43994774923
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    190.79 ms
+E1 = -205.6849146588119  E_coul = 89.11962362182221
+    CPU time for cycle=10                                                0.55 sec, wall time      0.20 sec, GPU time    199.11 ms
+cycle= 10 E= -355.892048736839  delta_E= -0.00284  |g|= 0.0234  |ddm|= 0.0597
+alpha HOMO = 0.964466609124  LUMO = 1.43999823138
+beta HOMO = 0.964466609124  LUMO = 1.43999823138
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    190.28 ms
+E1 = -205.63944288039693  E_coul = 89.07346798743805
+    CPU time for cycle=11                                                0.55 sec, wall time      0.20 sec, GPU time    198.63 ms
+cycle= 11 E= -355.892732592808  delta_E= -0.000684  |g|= 0.0149  |ddm|= 0.0422
+alpha HOMO = 0.964734648931  LUMO = 1.44009834624
+beta HOMO = 0.964734648931  LUMO = 1.44009834624
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    194.33 ms
+E1 = -205.6736611799676  E_coul = 89.10742729532859
+    CPU time for cycle=12                                                0.55 sec, wall time      0.20 sec, GPU time    203.27 ms
+cycle= 12 E= -355.892991584488  delta_E= -0.000259  |g|= 0.013  |ddm|= 0.0161
+alpha HOMO = 0.965067441715  LUMO = 1.44030987208
+beta HOMO = 0.965067441715  LUMO = 1.44030987208
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    190.24 ms
+E1 = -205.65919281928578  E_coul = 89.09231684091925
+    CPU time for cycle=13                                                0.55 sec, wall time      0.20 sec, GPU time    199.03 ms
+cycle= 13 E= -355.893633678216  delta_E= -0.000642  |g|= 0.01  |ddm|= 0.0483
+alpha HOMO = 0.965244677828  LUMO = 1.44040246467
+beta HOMO = 0.965244677828  LUMO = 1.44040246467
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    190.58 ms
+E1 = -205.65688519168245  E_coul = 89.08948514072206
+    CPU time for cycle=14                                                0.55 sec, wall time      0.20 sec, GPU time    198.94 ms
+cycle= 14 E= -355.894157750809  delta_E= -0.000524  |g|= 0.00733  |ddm|= 0.0609
+alpha HOMO = 0.965155420961  LUMO = 1.44034598743
+beta HOMO = 0.965155420961  LUMO = 1.44034598743
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    191.29 ms
+E1 = -205.6641761550823  E_coul = 89.09672115245087
+    CPU time for cycle=15                                                0.55 sec, wall time      0.20 sec, GPU time    199.56 ms
+cycle= 15 E= -355.89421270248  delta_E= -5.5e-05  |g|= 0.00836  |ddm|= 0.0121
+alpha HOMO = 0.965003057013  LUMO = 1.44027482216
+beta HOMO = 0.965003057013  LUMO = 1.44027482216
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    188.87 ms
+E1 = -205.64444086955478  E_coul = 89.07687121675303
+    CPU time for cycle=16                                                0.54 sec, wall time      0.20 sec, GPU time    197.25 ms
+cycle= 16 E= -355.894327352651  delta_E= -0.000115  |g|= 0.00329  |ddm|= 0.0301
+alpha HOMO = 0.96495176702  LUMO = 1.44020324461
+beta HOMO = 0.96495176702  LUMO = 1.44020324461
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.09 ms
+E1 = -205.65623867587965  E_coul = 89.08864378926047
+    CPU time for cycle=17                                                0.54 sec, wall time      0.20 sec, GPU time    197.45 ms
+cycle= 17 E= -355.894352586468  delta_E= -2.52e-05  |g|= 0.00292  |ddm|= 0.012
+alpha HOMO = 0.964924919334  LUMO = 1.44019302583
+beta HOMO = 0.964924919334  LUMO = 1.44019302583
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    189.92 ms
+E1 = -205.6455870347247  E_coul = 89.07798349859264
+    CPU time for cycle=18                                                0.55 sec, wall time      0.20 sec, GPU time    198.15 ms
+cycle= 18 E= -355.894361235981  delta_E= -8.65e-06  |g|= 0.00263  |ddm|= 0.00265
+alpha HOMO = 0.964892052007  LUMO = 1.44017535892
+beta HOMO = 0.964892052007  LUMO = 1.44017535892
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    187.39 ms
+E1 = -205.64603540666218  E_coul = 89.07841754561011
+    CPU time for cycle=19                                                0.54 sec, wall time      0.20 sec, GPU time    195.69 ms
+cycle= 19 E= -355.894375560901  delta_E= -1.43e-05  |g|= 0.00266  |ddm|= 0.00464
+alpha HOMO = 0.96489227656  LUMO = 1.440175079
+beta HOMO = 0.96489227656  LUMO = 1.440175079
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    191.55 ms
+E1 = -205.6460408402918  E_coul = 89.07842233900641
+    CPU time for cycle=20                                                0.55 sec, wall time      0.20 sec, GPU time    199.94 ms
+cycle= 20 E= -355.894376201134  delta_E= -6.4e-07  |g|= 0.00266  |ddm|= 0.000213
+alpha HOMO = 0.964899966706  LUMO = 1.44017811957
+beta HOMO = 0.964899966706  LUMO = 1.44017811957
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    188.46 ms
+E1 = -205.6469442623472  E_coul = 89.07932777522213
+    CPU time for cycle=21                                                0.54 sec, wall time      0.20 sec, GPU time    196.95 ms
+cycle= 21 E= -355.894374186974  delta_E= 2.01e-06  |g|= 0.00267  |ddm|= 0.00129
+alpha HOMO = 0.964900618486  LUMO = 1.44018132813
+beta HOMO = 0.964900618486  LUMO = 1.44018132813
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    188.28 ms
+E1 = -205.64414426079412  E_coul = 89.07653116782444
+    CPU time for cycle=22                                                0.54 sec, wall time      0.20 sec, GPU time    196.58 ms
+cycle= 22 E= -355.894370792819  delta_E= 3.39e-06  |g|= 0.00254  |ddm|= 0.00335
+alpha HOMO = 0.964894568871  LUMO = 1.44017639539
+beta HOMO = 0.964894568871  LUMO = 1.44017639539
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    189.74 ms
+E1 = -205.6483141933228  E_coul = 89.08069943324064
+    CPU time for cycle=23                                                0.55 sec, wall time      0.20 sec, GPU time    198.10 ms
+cycle= 23 E= -355.894372459931  delta_E= -1.67e-06  |g|= 0.0025  |ddm|= 0.00122
+alpha HOMO = 0.964891554908  LUMO = 1.44017315615
+beta HOMO = 0.964891554908  LUMO = 1.44017315615
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    188.54 ms
+E1 = -205.6461213519914  E_coul = 89.07849860100725
+    CPU time for cycle=24                                                0.54 sec, wall time      0.20 sec, GPU time    196.82 ms
+cycle= 24 E= -355.894380450833  delta_E= -7.99e-06  |g|= 0.0025  |ddm|= 0.00297
+alpha HOMO = 0.964891531608  LUMO = 1.44017391302
+beta HOMO = 0.964891531608  LUMO = 1.44017391302
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    188.81 ms
+E1 = -205.64621222515962  E_coul = 89.07859140884042
+    CPU time for cycle=25                                                0.54 sec, wall time      0.20 sec, GPU time    197.17 ms
+cycle= 25 E= -355.894378516168  delta_E= 1.93e-06  |g|= 0.0025  |ddm|= 0.000661
+alpha HOMO = 0.964893405677  LUMO = 1.44017186825
+beta HOMO = 0.964893405677  LUMO = 1.44017186825
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.19 ms
+E1 = -205.6452265381554  E_coul = 89.077599489398
+    CPU time for cycle=26                                                0.54 sec, wall time      0.20 sec, GPU time    197.46 ms
+cycle= 26 E= -355.894384748606  delta_E= -6.23e-06  |g|= 0.00255  |ddm|= 0.0023
+alpha HOMO = 0.964893520284  LUMO = 1.44017187263
+beta HOMO = 0.964893520284  LUMO = 1.44017187263
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    187.83 ms
+E1 = -205.6449817592631  E_coul = 89.07735430690514
+    CPU time for cycle=27                                                0.54 sec, wall time      0.20 sec, GPU time    196.08 ms
+cycle= 27 E= -355.894385152207  delta_E= -4.04e-07  |g|= 0.00255  |ddm|= 0.000182
+alpha HOMO = 0.964891651848  LUMO = 1.44016875587
+beta HOMO = 0.964891651848  LUMO = 1.44016875587
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.19 ms
+E1 = -205.64607482865142  E_coul = 89.07844334189697
+    CPU time for cycle=28                                                0.54 sec, wall time      0.20 sec, GPU time    197.60 ms
+cycle= 28 E= -355.894389186603  delta_E= -4.03e-06  |g|= 0.00259  |ddm|= 0.00127
+alpha HOMO = 0.964891897699  LUMO = 1.44016944718
+beta HOMO = 0.964891897699  LUMO = 1.44016944718
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.83 ms
+E1 = -205.64642623982056  E_coul = 89.07879684135453
+    CPU time for cycle=29                                                0.54 sec, wall time      0.20 sec, GPU time    198.26 ms
+cycle= 29 E= -355.894387098315  delta_E= 2.09e-06  |g|= 0.00258  |ddm|= 0.000683
+alpha HOMO = 0.964891207569  LUMO = 1.44017241492
+beta HOMO = 0.964891207569  LUMO = 1.44017241492
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    187.28 ms
+E1 = -205.64702462395496  E_coul = 89.07940285701288
+    CPU time for cycle=30                                                0.54 sec, wall time      0.20 sec, GPU time    195.56 ms
+cycle= 30 E= -355.894379466791  delta_E= 7.63e-06  |g|= 0.00259  |ddm|= 0.00357
+alpha HOMO = 0.964891271026  LUMO = 1.4401717935
+beta HOMO = 0.964891271026  LUMO = 1.4401717935
+    CPU time for vj and vk                                               0.54 sec, wall time      0.19 sec, GPU time    189.56 ms
+E1 = -205.64656362285035  E_coul = 89.07893956774734
+    CPU time for cycle=31                                                0.54 sec, wall time      0.20 sec, GPU time    197.86 ms
+cycle= 31 E= -355.894381754952  delta_E= -2.29e-06  |g|= 0.00256  |ddm|= 0.000722
+alpha HOMO = 0.96489296193  LUMO = 1.44017320886
+beta HOMO = 0.96489296193  LUMO = 1.44017320886
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.62 ms
+E1 = -205.6432022196163  E_coul = 89.07557482270761
+    CPU time for cycle=32                                                0.54 sec, wall time      0.20 sec, GPU time    198.20 ms
+cycle= 32 E= -355.894385096758  delta_E= -3.34e-06  |g|= 0.00257  |ddm|= 0.00222
+alpha HOMO = 0.964891483306  LUMO = 1.44016797325
+beta HOMO = 0.964891483306  LUMO = 1.44016797325
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    187.80 ms
+E1 = -205.64490948306425  E_coul = 89.07727368724791
+    CPU time for cycle=33                                                0.54 sec, wall time      0.20 sec, GPU time    196.37 ms
+cycle= 33 E= -355.894393495665  delta_E= -8.4e-06  |g|= 0.00262  |ddm|= 0.00261
+alpha HOMO = 0.964889744859  LUMO = 1.44016705473
+beta HOMO = 0.964889744859  LUMO = 1.44016705473
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.14 ms
+E1 = -205.6475500921335  E_coul = 89.07991792763023
+    CPU time for cycle=34                                                0.54 sec, wall time      0.20 sec, GPU time    197.47 ms
+cycle= 34 E= -355.894389864352  delta_E= 3.63e-06  |g|= 0.00267  |ddm|= 0.00294
+alpha HOMO = 0.964889621252  LUMO = 1.44016719739
+beta HOMO = 0.964889621252  LUMO = 1.44016719739
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.33 ms
+E1 = -205.64761345733785  E_coul = 89.07998168844999
+    CPU time for cycle=35                                                0.54 sec, wall time      0.20 sec, GPU time    197.69 ms
+cycle= 35 E= -355.894389468737  delta_E= 3.96e-07  |g|= 0.00267  |ddm|= 0.000361
+alpha HOMO = 0.964888879772  LUMO = 1.44016643799
+beta HOMO = 0.964888879772  LUMO = 1.44016643799
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    187.54 ms
+E1 = -205.6485450312826  E_coul = 89.08091366716847
+    CPU time for cycle=36                                                0.54 sec, wall time      0.20 sec, GPU time    195.85 ms
+cycle= 36 E= -355.894389063963  delta_E= 4.05e-07  |g|= 0.00267  |ddm|= 0.000278
+alpha HOMO = 0.96489027086  LUMO = 1.44016367614
+beta HOMO = 0.96489027086  LUMO = 1.44016367614
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.22 ms
+E1 = -205.64564733637476  E_coul = 89.07800183031556
+    CPU time for cycle=37                                                0.54 sec, wall time      0.20 sec, GPU time    197.58 ms
+cycle= 37 E= -355.894403205908  delta_E= -1.41e-05  |g|= 0.00278  |ddm|= 0.00457
+alpha HOMO = 0.964892918354  LUMO = 1.44017299741
+beta HOMO = 0.964892918354  LUMO = 1.44017299741
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.08 ms
+E1 = -205.64016424865707  E_coul = 89.07253050994969
+    CPU time for cycle=38                                                0.54 sec, wall time      0.20 sec, GPU time    197.36 ms
+cycle= 38 E= -355.894391438556  delta_E= 1.18e-05  |g|= 0.00279  |ddm|= 0.0041
+alpha HOMO = 0.964888222181  LUMO = 1.44017007221
+beta HOMO = 0.964888222181  LUMO = 1.44017007221
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    187.47 ms
+E1 = -205.64514112250086  E_coul = 89.0775089669777
+    CPU time for cycle=39                                                0.54 sec, wall time      0.20 sec, GPU time    195.71 ms
+cycle= 39 E= -355.894389855372  delta_E= 1.58e-06  |g|= 0.00286  |ddm|= 0.00414
+alpha HOMO = 0.964889100829  LUMO = 1.44016939021
+beta HOMO = 0.964889100829  LUMO = 1.44016939021
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.14 ms
+E1 = -205.64425271684425  E_coul = 89.0766194961954
+    CPU time for cycle=40                                                0.54 sec, wall time      0.20 sec, GPU time    197.46 ms
+cycle= 40 E= -355.894390920498  delta_E= -1.07e-06  |g|= 0.00308  |ddm|= 0.004
+alpha HOMO = 0.964887389846  LUMO = 1.44016045602
+beta HOMO = 0.964887389846  LUMO = 1.44016045602
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.05 ms
+E1 = -205.64791001849855  E_coul = 89.08025958601107
+    CPU time for cycle=41                                                0.54 sec, wall time      0.20 sec, GPU time    197.49 ms
+cycle= 41 E= -355.894408132336  delta_E= -1.72e-05  |g|= 0.00303  |ddm|= 0.00504
+alpha HOMO = 0.964885687465  LUMO = 1.44016077123
+beta HOMO = 0.964885687465  LUMO = 1.44016077123
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.01 ms
+E1 = -205.65047983610862  E_coul = 89.08283762908371
+    CPU time for cycle=42                                                0.54 sec, wall time      0.20 sec, GPU time    197.53 ms
+cycle= 42 E= -355.894399906874  delta_E= 8.23e-06  |g|= 0.00304  |ddm|= 0.00327
+alpha HOMO = 0.964887615749  LUMO = 1.44016763354
+beta HOMO = 0.964887615749  LUMO = 1.44016763354
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    188.93 ms
+E1 = -205.64417252605588  E_coul = 89.07652881940339
+    CPU time for cycle=43                                                0.54 sec, wall time      0.20 sec, GPU time    197.22 ms
+cycle= 43 E= -355.894401406501  delta_E= -1.5e-06  |g|= 0.00347  |ddm|= 0.004
+alpha HOMO = 0.964888836004  LUMO = 1.44016789307
+beta HOMO = 0.964888836004  LUMO = 1.44016789307
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    188.13 ms
+E1 = -205.64283610217282  E_coul = 89.075190714657
+    CPU time for cycle=44                                                0.54 sec, wall time      0.20 sec, GPU time    196.39 ms
+cycle= 44 E= -355.894403087365  delta_E= -1.68e-06  |g|= 0.00351  |ddm|= 0.000986
+alpha HOMO = 0.964888334341  LUMO = 1.44016466676
+beta HOMO = 0.964888334341  LUMO = 1.44016466676
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.16 ms
+E1 = -205.63985403803787  E_coul = 89.07218974056794
+    CPU time for cycle=45                                                0.54 sec, wall time      0.20 sec, GPU time    197.42 ms
+cycle= 45 E= -355.894421997319  delta_E= -1.89e-05  |g|= 0.00361  |ddm|= 0.00768
+alpha HOMO = 0.964887771959  LUMO = 1.44016388639
+beta HOMO = 0.964887771959  LUMO = 1.44016388639
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.34 ms
+E1 = -205.6404085966471  E_coul = 89.07274282823889
+    CPU time for cycle=46                                                0.54 sec, wall time      0.20 sec, GPU time    197.66 ms
+cycle= 46 E= -355.894423468257  delta_E= -1.47e-06  |g|= 0.00358  |ddm|= 0.000398
+alpha HOMO = 0.964877168718  LUMO = 1.44015906707
+beta HOMO = 0.964877168718  LUMO = 1.44015906707
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    188.59 ms
+E1 = -205.65115251477982  E_coul = 89.0834938026205
+    CPU time for cycle=47                                                0.54 sec, wall time      0.20 sec, GPU time    196.94 ms
+cycle= 47 E= -355.894416412008  delta_E= 7.06e-06  |g|= 0.00399  |ddm|= 0.0115
+alpha HOMO = 0.964875514217  LUMO = 1.44015586692
+beta HOMO = 0.964875514217  LUMO = 1.44015586692
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    188.72 ms
+E1 = -205.65441132789456  E_coul = 89.08675839660265
+    CPU time for cycle=48                                                0.54 sec, wall time      0.20 sec, GPU time    197.03 ms
+cycle= 48 E= -355.894410631141  delta_E= 5.78e-06  |g|= 0.00378  |ddm|= 0.00244
+alpha HOMO = 0.964884256429  LUMO = 1.44016052546
+beta HOMO = 0.964884256429  LUMO = 1.44016052546
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    189.21 ms
+E1 = -205.64135058560663  E_coul = 89.073666749436
+    CPU time for cycle=49                                                0.54 sec, wall time      0.20 sec, GPU time    197.52 ms
+cycle= 49 E= -355.89444153602  delta_E= -3.09e-05  |g|= 0.00453  |ddm|= 0.0111
+alpha HOMO = 0.964884404566  LUMO = 1.44016051414
+beta HOMO = 0.964884404566  LUMO = 1.44016051414
+    CPU time for vj and vk                                               0.53 sec, wall time      0.19 sec, GPU time    187.85 ms
+E1 = -205.64157592502895  E_coul = 89.0738932090548
+    CPU time for cycle=50                                                0.54 sec, wall time      0.20 sec, GPU time    196.10 ms
+cycle= 50 E= -355.894440415823  delta_E= 1.12e-06  |g|= 0.00461  |ddm|= 0.000526
+
+WARN: SCF failed to converge
+
+    CPU time for SCF                                                    34.71 sec, wall time     13.57 sec, GPU time  13565.59 ms
+SCF not converged.
+SCF energy = -355.894440415823
+
+
+******** <class 'gpu4pyscf.pbc.scf.kuhf.KUHF'> ********
+method = KUHF
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'gpu4pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 4
+diis_damp = 0
+SCF conv_tol = 1e-06
+SCF conv_tol_grad = None
+SCF max_cycles = 50
+direct_scf = True
+direct_scf_tol = 1e-13
+max_memory 327680 MB (current use 1618 MB)
+
+
+******** PBC SCF flags ********
+N kpts = 1
+kpts = [[0. 0. 0.]]
+Exchange divergence treatment (exxdiv) = None
+DF object = <gpu4pyscf.pbc.df.fft.FFTDF object at 0x7fbecf472150>
+number of electrons per cell  alpha = 24 beta = 24
+cond(S) = [563.61197933]
+Set gradient conv threshold to 0.001
+    CPU time for vj and vk                                               0.81 sec, wall time      0.49 sec, GPU time    367.92 ms
+E1 = -205.64157592502895  E_coul = 89.0738932090549
+init E= -355.894440415823
+    CPU time for SCF initialization                                      4.54 sec, wall time      0.97 sec, GPU time    973.21 ms
+alpha HOMO = 0.669700149977  LUMO = 0.694100055015
+beta HOMO = 0.669700149977  LUMO = 0.694100055015
+    CPU time for vj and vk                                               0.67 sec, wall time      0.72 sec, GPU time    715.34 ms
+E1 = -210.74015466525879  E_coul = 93.64252255573516
+    CPU time for cycle=1                                                 0.70 sec, wall time      0.72 sec, GPU time    722.20 ms
+cycle= 1 E= -356.424389809373  delta_E= -0.53  |g|= 0.44  |ddm|= 3.36
+alpha HOMO = 0.764540909784  LUMO = 0.768858382646
+beta HOMO = 0.764540909784  LUMO = 0.768858382646
+    CPU time for vj and vk                                               0.68 sec, wall time      0.93 sec, GPU time    931.04 ms
+E1 = -204.81979284334295  E_coul = 87.73854683538816
+    CPU time for cycle=2                                                 0.71 sec, wall time      0.94 sec, GPU time    940.43 ms
+cycle= 2 E= -356.408003707804  delta_E= 0.0164  |g|= 0.548  |ddm|= 2.35
+alpha HOMO = 0.710484034093  LUMO = 0.73195584742
+beta HOMO = 0.710484034093  LUMO = 0.73195584742
+    CPU time for vj and vk                                               0.67 sec, wall time      0.75 sec, GPU time    746.95 ms
+E1 = -208.5213959990542  E_coul = 91.74765500034349
+    CPU time for cycle=3                                                 0.70 sec, wall time      0.76 sec, GPU time    755.03 ms
+cycle= 3 E= -356.10049869856  delta_E= 0.308  |g|= 1.29  |ddm|= 1.65
+alpha HOMO = 0.70065994478  LUMO = 0.731628619672
+beta HOMO = 0.70065994478  LUMO = 0.731628619672
+    CPU time for vj and vk                                               0.67 sec, wall time      0.70 sec, GPU time    704.98 ms
+E1 = -206.68967216239554  E_coul = 89.33764164467438
+    CPU time for cycle=4                                                 0.70 sec, wall time      0.71 sec, GPU time    713.14 ms
+cycle= 4 E= -356.67878821757  delta_E= -0.578  |g|= 0.279  |ddm|= 1.46
+alpha HOMO = 0.705858672697  LUMO = 0.739998311389
+beta HOMO = 0.705858672697  LUMO = 0.739998311389
+    CPU time for vj and vk                                               0.69 sec, wall time      0.89 sec, GPU time    888.01 ms
+E1 = -206.80858730316555  E_coul = 89.4254276276118
+    CPU time for cycle=5                                                 0.72 sec, wall time      0.90 sec, GPU time    896.10 ms
+cycle= 5 E= -356.709917375403  delta_E= -0.0311  |g|=  0.2  |ddm|= 0.187
+alpha HOMO = 0.711984792136  LUMO = 0.805652774142
+beta HOMO = 0.711984792136  LUMO = 0.805652774142
+    CPU time for vj and vk                                               0.67 sec, wall time      0.68 sec, GPU time    678.98 ms
+E1 = -207.18743086347106  E_coul = 89.76290971571893
+    CPU time for cycle=6                                                 0.70 sec, wall time      0.69 sec, GPU time    687.14 ms
+cycle= 6 E= -356.751278847601  delta_E= -0.0414  |g|= 0.088  |ddm|= 0.419
+alpha HOMO = 0.724857618184  LUMO = 0.817862395638
+beta HOMO = 0.724857618184  LUMO = 0.817862395638
+    CPU time for vj and vk                                               0.72 sec, wall time      1.01 sec, GPU time   1013.08 ms
+E1 = -206.99275451970811  E_coul = 89.55799287004804
+    CPU time for cycle=7                                                 0.75 sec, wall time      1.02 sec, GPU time   1021.18 ms
+cycle= 7 E= -356.761519349509  delta_E= -0.0102  |g|= 0.0509  |ddm|= 0.172
+alpha HOMO = 0.722399545257  LUMO = 0.816292608768
+beta HOMO = 0.722399545257  LUMO = 0.816292608768
+    CPU time for vj and vk                                               0.66 sec, wall time      0.72 sec, GPU time    722.74 ms
+E1 = -207.29628937216037  E_coul = 89.85359941385703
+    CPU time for cycle=8                                                 0.69 sec, wall time      0.73 sec, GPU time    730.87 ms
+cycle= 8 E= -356.769447658152  delta_E= -0.00793  |g|= 0.0492  |ddm|= 0.161
+alpha HOMO = 0.723638914791  LUMO = 0.818511526667
+beta HOMO = 0.723638914791  LUMO = 0.818511526667
+    CPU time for vj and vk                                               0.67 sec, wall time      0.69 sec, GPU time    691.47 ms
+E1 = -207.09583797657424  E_coul = 89.65066802561627
+    CPU time for cycle=9                                                 0.70 sec, wall time      0.70 sec, GPU time    699.75 ms
+cycle= 9 E= -356.771927650807  delta_E= -0.00248  |g|= 0.0417  |ddm|= 0.0519
+alpha HOMO = 0.72568090689  LUMO = 0.823138516513
+beta HOMO = 0.72568090689  LUMO = 0.823138516513
+    CPU time for vj and vk                                               0.75 sec, wall time      1.00 sec, GPU time    997.05 ms
+E1 = -207.2257485260557  E_coul = 89.76571417870016
+    CPU time for cycle=10                                                0.79 sec, wall time      1.01 sec, GPU time   1005.48 ms
+cycle= 10 E= -356.786792047204  delta_E= -0.0149  |g|= 0.0358  |ddm|= 0.344
+alpha HOMO = 0.725063787655  LUMO = 0.825224124907
+beta HOMO = 0.725063787655  LUMO = 0.825224124907
+    CPU time for vj and vk                                               0.72 sec, wall time      0.72 sec, GPU time    722.39 ms
+E1 = -207.18858625211556  E_coul = 89.72088751454189
+    CPU time for cycle=11                                                0.75 sec, wall time      0.73 sec, GPU time    730.74 ms
+cycle= 11 E= -356.794456437423  delta_E= -0.00766  |g|= 0.0319  |ddm|= 0.22
+alpha HOMO = 0.724600235925  LUMO = 0.824879823271
+beta HOMO = 0.724600235925  LUMO = 0.824879823271
+    CPU time for vj and vk                                               0.72 sec, wall time      0.77 sec, GPU time    767.11 ms
+E1 = -207.26533419027925  E_coul = 89.79240310182298
+    CPU time for cycle=12                                                0.75 sec, wall time      0.78 sec, GPU time    775.40 ms
+cycle= 12 E= -356.799688788305  delta_E= -0.00523  |g|= 0.0277  |ddm|= 0.186
+alpha HOMO = 0.72541146346  LUMO = 0.820421675885
+beta HOMO = 0.72541146346  LUMO = 0.820421675885
+    CPU time for vj and vk                                               0.71 sec, wall time      0.59 sec, GPU time    588.36 ms
+E1 = -207.250581386181  E_coul = 89.77329974489912
+    CPU time for cycle=13                                                0.74 sec, wall time      0.60 sec, GPU time    596.60 ms
+cycle= 13 E= -356.804039341131  delta_E= -0.00435  |g|= 0.0213  |ddm|= 0.197
+alpha HOMO = 0.723120750183  LUMO = 0.833738710155
+beta HOMO = 0.723120750183  LUMO = 0.833738710155
+    CPU time for vj and vk                                               0.70 sec, wall time      0.97 sec, GPU time    965.49 ms
+E1 = -207.20207970560182  E_coul = 89.72147509795363
+    CPU time for cycle=14                                                0.73 sec, wall time      0.97 sec, GPU time    973.84 ms
+cycle= 14 E= -356.807362307497  delta_E= -0.00332  |g|= 0.0323  |ddm|= 0.337
+alpha HOMO = 0.722367243614  LUMO = 0.820081729234
+beta HOMO = 0.722367243614  LUMO = 0.820081729234
+    CPU time for vj and vk                                               0.73 sec, wall time      0.68 sec, GPU time    680.36 ms
+E1 = -207.24996171706118  E_coul = 89.76885456645566
+    CPU time for cycle=15                                                0.76 sec, wall time      0.69 sec, GPU time    688.70 ms
+cycle= 15 E= -356.807864850455  delta_E= -0.000503  |g|= 0.0112  |ddm|= 0.0702
+alpha HOMO = 0.721782654739  LUMO = 0.820382249733
+beta HOMO = 0.721782654739  LUMO = 0.820382249733
+    CPU time for vj and vk                                               0.72 sec, wall time      0.83 sec, GPU time    831.96 ms
+E1 = -207.26495489876987  E_coul = 89.78305758096954
+    CPU time for cycle=16                                                0.75 sec, wall time      0.84 sec, GPU time    840.26 ms
+cycle= 16 E= -356.808655017649  delta_E= -0.00079  |g|= 0.0111  |ddm|= 0.151
+alpha HOMO = 0.722044819016  LUMO = 0.817239351396
+beta HOMO = 0.722044819016  LUMO = 0.817239351396
+    CPU time for vj and vk                                               0.71 sec, wall time      0.81 sec, GPU time    812.64 ms
+E1 = -207.2308986239288  E_coul = 89.74883910940477
+    CPU time for cycle=17                                                0.74 sec, wall time      0.82 sec, GPU time    821.02 ms
+cycle= 17 E= -356.808817214373  delta_E= -0.000162  |g|= 0.00582  |ddm|= 0.0248
+alpha HOMO = 0.721508818819  LUMO = 0.816124765903
+beta HOMO = 0.721508818819  LUMO = 0.816124765903
+    CPU time for vj and vk                                               0.66 sec, wall time      0.79 sec, GPU time    790.04 ms
+E1 = -207.2638489651657  E_coul = 89.78172680271076
+    CPU time for cycle=18                                                0.70 sec, wall time      0.80 sec, GPU time    798.32 ms
+cycle= 18 E= -356.808879862304  delta_E= -6.26e-05  |g|= 0.0046  |ddm|= 0.0142
+alpha HOMO = 0.721390171696  LUMO = 0.816505113799
+beta HOMO = 0.721390171696  LUMO = 0.816505113799
+    CPU time for vj and vk                                               0.67 sec, wall time      0.82 sec, GPU time    819.31 ms
+E1 = -207.2593121687918  E_coul = 89.7770695949693
+    CPU time for cycle=19                                                0.71 sec, wall time      0.83 sec, GPU time    827.43 ms
+cycle= 19 E= -356.809000273671  delta_E= -0.00012  |g|= 0.00354  |ddm|= 0.0531
+alpha HOMO = 0.721343701386  LUMO = 0.815993317519
+beta HOMO = 0.721343701386  LUMO = 0.815993317519
+    CPU time for vj and vk                                               0.68 sec, wall time      0.83 sec, GPU time    825.08 ms
+E1 = -207.26216293109857  E_coul = 89.77985062626409
+    CPU time for cycle=20                                                0.72 sec, wall time      0.83 sec, GPU time    833.38 ms
+cycle= 20 E= -356.809070004683  delta_E= -6.97e-05  |g|= 0.00315  |ddm|= 0.0244
+alpha HOMO = 0.721283566509  LUMO = 0.816012779563
+beta HOMO = 0.721283566509  LUMO = 0.816012779563
+    CPU time for vj and vk                                               0.70 sec, wall time      0.90 sec, GPU time    900.93 ms
+E1 = -207.26103134771344  E_coul = 89.77866187845896
+    CPU time for cycle=21                                                0.73 sec, wall time      0.91 sec, GPU time    909.35 ms
+cycle= 21 E= -356.809127169103  delta_E= -5.72e-05  |g|= 0.00295  |ddm|= 0.0222
+alpha HOMO = 0.721287448583  LUMO = 0.81590207209
+beta HOMO = 0.721287448583  LUMO = 0.81590207209
+    CPU time for vj and vk                                               0.69 sec, wall time      0.83 sec, GPU time    825.04 ms
+E1 = -207.26510171824043  E_coul = 89.78265172073688
+    CPU time for cycle=22                                                0.72 sec, wall time      0.83 sec, GPU time    833.29 ms
+cycle= 22 E= -356.809207697353  delta_E= -8.05e-05  |g|= 0.00279  |ddm|= 0.0295
+alpha HOMO = 0.721242607896  LUMO = 0.816021986373
+beta HOMO = 0.721242607896  LUMO = 0.816021986373
+    CPU time for vj and vk                                               0.67 sec, wall time      0.68 sec, GPU time    684.75 ms
+E1 = -207.26168461482555  E_coul = 89.77919708263228
+    CPU time for cycle=23                                                0.70 sec, wall time      0.69 sec, GPU time    693.03 ms
+cycle= 23 E= -356.809245232042  delta_E= -3.75e-05  |g|= 0.00276  |ddm|= 0.0183
+alpha HOMO = 0.72129119062  LUMO = 0.816077310098
+beta HOMO = 0.72129119062  LUMO = 0.816077310098
+    CPU time for vj and vk                                               0.69 sec, wall time      0.79 sec, GPU time    791.06 ms
+E1 = -207.26318476184713  E_coul = 89.78064246013012
+    CPU time for cycle=24                                                0.72 sec, wall time      0.80 sec, GPU time    799.29 ms
+cycle= 24 E= -356.809300001566  delta_E= -5.48e-05  |g|= 0.0026  |ddm|= 0.0228
+alpha HOMO = 0.721286966412  LUMO = 0.816052202677
+beta HOMO = 0.721286966412  LUMO = 0.816052202677
+    CPU time for vj and vk                                               0.69 sec, wall time      0.90 sec, GPU time    903.22 ms
+E1 = -207.26189166814427  E_coul = 89.77934227663526
+    CPU time for cycle=25                                                0.73 sec, wall time      0.91 sec, GPU time    911.39 ms
+cycle= 25 E= -356.809307091358  delta_E= -7.09e-06  |g|= 0.00263  |ddm|= 0.00492
+alpha HOMO = 0.721280804616  LUMO = 0.816033915042
+beta HOMO = 0.721280804616  LUMO = 0.816033915042
+    CPU time for vj and vk                                               0.69 sec, wall time      0.68 sec, GPU time    679.51 ms
+E1 = -207.26178748020007  E_coul = 89.77924928560364
+    CPU time for cycle=26                                                0.72 sec, wall time      0.69 sec, GPU time    687.66 ms
+cycle= 26 E= -356.809295894445  delta_E= 1.12e-05  |g|= 0.00262  |ddm|= 0.00457
+alpha HOMO = 0.721258272967  LUMO = 0.816027286787
+beta HOMO = 0.721258272967  LUMO = 0.816027286787
+    CPU time for vj and vk                                               0.67 sec, wall time      0.73 sec, GPU time    727.40 ms
+E1 = -207.26221900338874  E_coul = 89.7796830250465
+    CPU time for cycle=27                                                0.70 sec, wall time      0.74 sec, GPU time    735.51 ms
+cycle= 27 E= -356.809293678191  delta_E= 2.22e-06  |g|= 0.00258  |ddm|= 0.00519
+alpha HOMO = 0.721280219686  LUMO = 0.815993727528
+beta HOMO = 0.721280219686  LUMO = 0.815993727528
+    CPU time for vj and vk                                               0.68 sec, wall time      0.82 sec, GPU time    820.71 ms
+E1 = -207.26427975935093  E_coul = 89.7817468155936
+    CPU time for cycle=28                                                0.72 sec, wall time      0.83 sec, GPU time    828.95 ms
+cycle= 28 E= -356.809290643606  delta_E= 3.03e-06  |g|= 0.00258  |ddm|= 0.00385
+alpha HOMO = 0.721265695834  LUMO = 0.816022327293
+beta HOMO = 0.721265695834  LUMO = 0.816022327293
+    CPU time for vj and vk                                               0.67 sec, wall time      0.82 sec, GPU time    818.93 ms
+E1 = -207.26261147517255  E_coul = 89.78006973283105
+    CPU time for cycle=29                                                0.70 sec, wall time      0.83 sec, GPU time    827.21 ms
+cycle= 29 E= -356.80929944219  delta_E= -8.8e-06  |g|= 0.00245  |ddm|= 0.0115
+alpha HOMO = 0.721221272666  LUMO = 0.816005316515
+beta HOMO = 0.721221272666  LUMO = 0.816005316515
+    CPU time for vj and vk                                               0.68 sec, wall time      0.82 sec, GPU time    820.20 ms
+E1 = -207.26361872460808  E_coul = 89.78105779585995
+    CPU time for cycle=30                                                0.71 sec, wall time      0.83 sec, GPU time    828.35 ms
+cycle= 30 E= -356.809318628597  delta_E= -1.92e-05  |g|= 0.00238  |ddm|= 0.0128
+alpha HOMO = 0.72125315306  LUMO = 0.816043172519
+beta HOMO = 0.72125315306  LUMO = 0.816043172519
+    CPU time for vj and vk                                               0.67 sec, wall time      0.82 sec, GPU time    820.07 ms
+E1 = -207.2632327202249  E_coul = 89.78064467866822
+    CPU time for cycle=31                                                0.71 sec, wall time      0.83 sec, GPU time    828.19 ms
+cycle= 31 E= -356.809345741406  delta_E= -2.71e-05  |g|= 0.00231  |ddm|= 0.0168
+alpha HOMO = 0.721264215914  LUMO = 0.816110720037
+beta HOMO = 0.721264215914  LUMO = 0.816110720037
+    CPU time for vj and vk                                               0.67 sec, wall time      0.82 sec, GPU time    817.89 ms
+E1 = -207.26172119661538  E_coul = 89.77909366297165
+    CPU time for cycle=32                                                0.70 sec, wall time      0.83 sec, GPU time    826.04 ms
+cycle= 32 E= -356.809385233493  delta_E= -3.95e-05  |g|= 0.00226  |ddm|= 0.0201
+alpha HOMO = 0.721241375248  LUMO = 0.816127176477
+beta HOMO = 0.721241375248  LUMO = 0.816127176477
+    CPU time for vj and vk                                               0.69 sec, wall time      0.96 sec, GPU time    957.48 ms
+E1 = -207.26337801651502  E_coul = 89.78071687121329
+    CPU time for cycle=33                                                0.73 sec, wall time      0.97 sec, GPU time    965.61 ms
+cycle= 33 E= -356.809418845151  delta_E= -3.36e-05  |g|= 0.0022  |ddm|= 0.0183
+alpha HOMO = 0.721277857238  LUMO = 0.816187695329
+beta HOMO = 0.721277857238  LUMO = 0.816187695329
+    CPU time for vj and vk                                               0.68 sec, wall time      0.74 sec, GPU time    737.80 ms
+E1 = -207.26191801516728  E_coul = 89.77922292255295
+    CPU time for cycle=34                                                0.71 sec, wall time      0.75 sec, GPU time    745.99 ms
+cycle= 34 E= -356.809452792463  delta_E= -3.39e-05  |g|= 0.00216  |ddm|= 0.0167
+alpha HOMO = 0.721290093714  LUMO = 0.816229771417
+beta HOMO = 0.721290093714  LUMO = 0.816229771417
+    CPU time for vj and vk                                               0.67 sec, wall time      0.62 sec, GPU time    615.98 ms
+E1 = -207.26144134915447  E_coul = 89.77871439609132
+    CPU time for cycle=35                                                0.70 sec, wall time      0.62 sec, GPU time    624.09 ms
+cycle= 35 E= -356.809484652912  delta_E= -3.19e-05  |g|= 0.00214  |ddm|= 0.0157
+alpha HOMO = 0.721289352362  LUMO = 0.81625087493
+beta HOMO = 0.721289352362  LUMO = 0.81625087493
+    CPU time for vj and vk                                               0.68 sec, wall time      0.82 sec, GPU time    820.89 ms
+E1 = -207.26164159675642  E_coul = 89.77887945010782
+    CPU time for cycle=36                                                0.71 sec, wall time      0.83 sec, GPU time    829.04 ms
+cycle= 36 E= -356.809519846498  delta_E= -3.52e-05  |g|= 0.00212  |ddm|= 0.0167
+alpha HOMO = 0.721319494235  LUMO = 0.816286664009
+beta HOMO = 0.721319494235  LUMO = 0.816286664009
+    CPU time for vj and vk                                               0.68 sec, wall time      0.82 sec, GPU time    821.62 ms
+E1 = -207.26062510072316  E_coul = 89.77783791760078
+    CPU time for cycle=37                                                0.72 sec, wall time      0.83 sec, GPU time    829.82 ms
+cycle= 37 E= -356.809544882971  delta_E= -2.5e-05  |g|= 0.00212  |ddm|= 0.0117
+alpha HOMO = 0.721321866826  LUMO = 0.816279047755
+beta HOMO = 0.721321866826  LUMO = 0.816279047755
+    CPU time for vj and vk                                               0.68 sec, wall time      0.95 sec, GPU time    950.55 ms
+E1 = -207.26069456499496  E_coul = 89.77789912490717
+    CPU time for cycle=38                                                0.71 sec, wall time      0.96 sec, GPU time    958.67 ms
+cycle= 38 E= -356.809553139937  delta_E= -8.26e-06  |g|= 0.00212  |ddm|= 0.00389
+alpha HOMO = 0.721319978183  LUMO = 0.816282088376
+beta HOMO = 0.721319978183  LUMO = 0.816282088376
+    CPU time for vj and vk                                               0.69 sec, wall time      0.75 sec, GPU time    747.09 ms
+E1 = -207.26073339194235  E_coul = 89.77793894112448
+    CPU time for cycle=39                                                0.72 sec, wall time      0.76 sec, GPU time    755.18 ms
+cycle= 39 E= -356.809552150667  delta_E= 9.89e-07  |g|= 0.00212  |ddm|= 0.00114
+alpha HOMO = 0.721314727572  LUMO = 0.816273445611
+beta HOMO = 0.721314727572  LUMO = 0.816273445611
+    CPU time for vj and vk                                               0.68 sec, wall time      0.74 sec, GPU time    741.96 ms
+E1 = -207.26095260815032  E_coul = 89.77816550676286
+    CPU time for cycle=40                                                0.71 sec, wall time      0.75 sec, GPU time    750.05 ms
+cycle= 40 E= -356.809544801236  delta_E= 7.35e-06  |g|= 0.00211  |ddm|= 0.00405
+alpha HOMO = 0.721324506453  LUMO = 0.816288189669
+beta HOMO = 0.721324506453  LUMO = 0.816288189669
+    CPU time for vj and vk                                               0.69 sec, wall time      0.63 sec, GPU time    634.46 ms
+E1 = -207.26048417202378  E_coul = 89.77768717422886
+    CPU time for cycle=41                                                0.72 sec, wall time      0.64 sec, GPU time    642.61 ms
+cycle= 41 E= -356.809554697644  delta_E= -9.9e-06  |g|= 0.00211  |ddm|= 0.0051
+alpha HOMO = 0.721327532183  LUMO = 0.81629346834
+beta HOMO = 0.721327532183  LUMO = 0.81629346834
+    CPU time for vj and vk                                               0.68 sec, wall time      0.85 sec, GPU time    853.76 ms
+E1 = -207.26052115991567  E_coul = 89.77771767644566
+    CPU time for cycle=42                                                0.71 sec, wall time      0.86 sec, GPU time    861.96 ms
+cycle= 42 E= -356.809561183319  delta_E= -6.49e-06  |g|= 0.00209  |ddm|= 0.00384
+alpha HOMO = 0.721328285428  LUMO = 0.816318334862
+beta HOMO = 0.721328285428  LUMO = 0.816318334862
+    CPU time for vj and vk                                               0.67 sec, wall time      0.69 sec, GPU time    689.75 ms
+E1 = -207.26044769666854  E_coul = 89.7776198043936
+    CPU time for cycle=43                                                0.70 sec, wall time      0.70 sec, GPU time    697.83 ms
+cycle= 43 E= -356.809585592124  delta_E= -2.44e-05  |g|= 0.00209  |ddm|= 0.0119
+alpha HOMO = 0.721340149626  LUMO = 0.816354988845
+beta HOMO = 0.721340149626  LUMO = 0.816354988845
+    CPU time for vj and vk                                               0.70 sec, wall time      0.91 sec, GPU time    905.32 ms
+E1 = -207.25984873395217  E_coul = 89.77699638487701
+    CPU time for cycle=44                                                0.73 sec, wall time      0.91 sec, GPU time    913.44 ms
+cycle= 44 E= -356.809610048924  delta_E= -2.45e-05  |g|= 0.00208  |ddm|= 0.0116
+alpha HOMO = 0.721338765222  LUMO = 0.816370831148
+beta HOMO = 0.721338765222  LUMO = 0.816370831148
+    CPU time for vj and vk                                               0.70 sec, wall time      0.74 sec, GPU time    741.15 ms
+E1 = -207.25997361810215  E_coul = 89.77710206271843
+    CPU time for cycle=45                                                0.74 sec, wall time      0.75 sec, GPU time    749.28 ms
+cycle= 45 E= -356.809629255233  delta_E= -1.92e-05  |g|= 0.00208  |ddm|= 0.00902
+alpha HOMO = 0.721339027297  LUMO = 0.81638869391
+beta HOMO = 0.721339027297  LUMO = 0.81638869391
+    CPU time for vj and vk                                               0.68 sec, wall time      0.74 sec, GPU time    743.11 ms
+E1 = -207.25976124205235  E_coul = 89.77686819114166
+    CPU time for cycle=46                                                0.71 sec, wall time      0.75 sec, GPU time    751.34 ms
+cycle= 46 E= -356.80965075076  delta_E= -2.15e-05  |g|= 0.00208  |ddm|= 0.01
+alpha HOMO = 0.721340395058  LUMO = 0.816402366844
+beta HOMO = 0.721340395058  LUMO = 0.816402366844
+    CPU time for vj and vk                                               0.68 sec, wall time      0.82 sec, GPU time    817.48 ms
+E1 = -207.25967182147244  E_coul = 89.77677050703207
+    CPU time for cycle=47                                                0.71 sec, wall time      0.83 sec, GPU time    825.81 ms
+cycle= 47 E= -356.809659014289  delta_E= -8.26e-06  |g|= 0.00208  |ddm|= 0.00391
+alpha HOMO = 0.721343473187  LUMO = 0.816403213544
+beta HOMO = 0.721343473187  LUMO = 0.816403213544
+    CPU time for vj and vk                                               0.69 sec, wall time      0.90 sec, GPU time    904.28 ms
+E1 = -207.25962918397235  E_coul = 89.77672137635942
+    CPU time for cycle=48                                                0.72 sec, wall time      0.91 sec, GPU time    912.48 ms
+cycle= 48 E= -356.809665507462  delta_E= -6.49e-06  |g|= 0.00208  |ddm|= 0.00304
+alpha HOMO = 0.721345424377  LUMO = 0.816395538626
+beta HOMO = 0.721345424377  LUMO = 0.816395538626
+    CPU time for vj and vk                                               0.67 sec, wall time      0.69 sec, GPU time    689.33 ms
+E1 = -207.25972931667368  E_coul = 89.7768345568482
+    CPU time for cycle=49                                                0.70 sec, wall time      0.70 sec, GPU time    697.49 ms
+cycle= 49 E= -356.809652459674  delta_E= 1.3e-05  |g|= 0.00208  |ddm|= 0.00611
+alpha HOMO = 0.721336674146  LUMO = 0.816390714338
+beta HOMO = 0.721336674146  LUMO = 0.816390714338
+    CPU time for vj and vk                                               0.67 sec, wall time      0.92 sec, GPU time    918.81 ms
+E1 = -207.25967541867473  E_coul = 89.77681201253147
+    CPU time for cycle=50                                                0.71 sec, wall time      0.93 sec, GPU time    926.90 ms
+cycle= 50 E= -356.809621105992  delta_E= 3.14e-05  |g|= 0.00207  |ddm|= 0.0148
+
+WARN: SCF failed to converge
+
+    CPU time for SCF                                                    40.66 sec, wall time     41.32 sec, GPU time  41322.05 ms
+SCF not converged.
+SCF energy = -356.809621105992
+ene_ref =  -356.809621
+ene_sol =  -355.894440
+error   = 9.15e-01
+End time = Tue Nov 18 10:49:29 PM PST 2025

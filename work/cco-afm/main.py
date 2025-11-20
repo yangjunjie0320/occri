@@ -30,26 +30,40 @@ pcell.build()
 
 kpts = pcell.make_kpts([2, 2, 1])
 
+alph_label = ["0 Cu 3dx2-y2"]
+beta_label = ["1 Cu 3dx2-y2"]
+alph_ix = pcell.search_ao_label(alph_label)
+beta_ix = pcell.search_ao_label(beta_label)
+
 from gpu4pyscf.pbc.scf import KRHF, KUHF
 mf = KUHF(pcell, kpts)
 mf.verbose = 5
 mf.conv_tol = 1e-6
 mf.max_cycle = 10
+mf.diis_space = 4
 mf.exxdiv = None
 dm0 = mf.get_init_guess(key='minao')
 
-mf.kernel(dm0)
-ene_ref = mf.e_tot
+dm0[0, :, alph_ix, alph_ix] *= 2.0
+dm0[1, :, beta_ix, beta_ix] *= 2.0
+dm0[0, :, beta_ix, beta_ix] *= 0.0
+dm0[1, :, alph_ix, alph_ix] *= 0.0
 
 from fftdf import FFTDF
-from fftdf import get_k_kpts_occri
 mf.with_df = FFTDF(pcell, kpts, with_occri=True, use_gpu=True)
-mf.with_df.blksize = 4
+mf.with_df.blksize = 32
+mf.with_df.vR_dot_dm_version = "_version3"
 mf.kernel(dm0)
 ene_sol = mf.e_tot
 
-print("ene_ref = %12.6f" % ene_ref)
-print("ene_sol = %12.6f" % ene_sol)
-print("error   = %6.2e" % abs(ene_ref - ene_sol))
+# ene_sol = mf.e_tot
+# dm0 = mf.make_rdm1()
 
-print("done")
+# from gpu4pyscf.pbc.df.fft import FFTDF
+# mf.with_df = FFTDF(pcell, kpts)
+# mf.kernel(dm0)
+# ene_ref = mf.e_tot
+
+# print("ene_ref = %12.6f" % ene_ref)
+# print("ene_sol = %12.6f" % ene_sol)
+# print("error   = %6.2e" % abs(ene_ref - ene_sol))

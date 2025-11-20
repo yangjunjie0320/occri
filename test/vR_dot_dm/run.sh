@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem-per-cpu=10gb
-#SBATCH --time=08:00:00
+#SBATCH --time=10:00:00
 
 echo "SLURMD_NODENAME = $SLURMD_NODENAME"
 echo "Start time = $(date)"
@@ -36,15 +36,6 @@ ln -s $PYSCF_TMPDIR tmp
 export PYTHONPATH=/home/junjiey/work/occri/occri-main/src/:$PYTHONPATH
 export PYTHONPATH=/home/junjiey/work/occri/packages/libdmet2-main/:$PYTHONPATH
 
-# nsys profile --stats=true python main.py
-# python main.py
-nsys profile \
-  --stats=true \
-  --trace=cuda,nvtx,osrt \
-  --python-backtrace=cuda \
-  --python-sampling=true \
-  --output=profile \
-  --force-overwrite=true \
-  python main.py
-
-echo "End time = $(date)"
+cp /home/junjiey/work/occri/occri-main/src/vR_dot_dm.py .
+python vR_dot_dm.py
+# rm vR_dot_dm.py

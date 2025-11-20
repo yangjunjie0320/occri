@@ -63,11 +63,13 @@ def get_k_kpts_occri(mydf, dm_kpts, hermi=1, kpts=np.zeros((1,3)),
 
     mo_coeff = getattr(dm_kpts, 'mo_coeff', None)
     mo_occ = getattr(dm_kpts, 'mo_occ', None)
+
     if mo_coeff is not None and mo_occ is not None:
         mo_coeff = cp.asarray(mo_coeff).reshape(nset, nkpts, nao, -1)
         mo_occ = cp.asarray(mo_occ).reshape(nset, nkpts, -1)
     else:
-        return _format_jks(vk_kpts, dm_kpts, input_band, kpts)
+        from gpu4pyscf.pbc.df.fft_jk import get_k_kpts
+        return get_k_kpts(mydf, dm_kpts, hermi, kpts, kpts_band, exxdiv)
 
     blksize = mydf.blksize
     from gpu4pyscf.pbc.dft.numint import eval_ao
@@ -86,9 +88,9 @@ def get_k_kpts_occri(mydf, dm_kpts, hermi=1, kpts=np.zeros((1,3)),
             cocc1 = cocc_kpts[k1]            
             mo1 = cp.dot(ao1, cocc1)
             nmo1 = mo1.shape[1]
-            mo1T = mo1.T.reshape(nmo1, 1, ngrids)
+            mo1T = mo1.T
 
-            vR_dm = cp.zeros((nmo1, ngrids), dtype=dtype)
+            vk_k1 = cp.zeros((nmo1, nao), dtype=dtype)
             for k2 in range(nkpts):
                 kpt2 = kpts[k2]
                 ao2 = eval_ao(cell, coords, kpt=kpt2)
@@ -105,26 +107,15 @@ def get_k_kpts_occri(mydf, dm_kpts, hermi=1, kpts=np.zeros((1,3)),
                 cocc2 = cocc_kpts[k2]
                 mo2 = cp.dot(ao2, cocc2 * nocc_kpts[k2] ** 0.5)
                 nmo2 = mo2.shape[1]
-                mo2T = mo2.T.reshape(1, nmo2, ngrids)
+                mo2T = mo2.T
 
-                for i0, i1 in lib.prange(0, nmo1, blksize):
-                    rhoR = mo1T[i0:i1].conj() * mo2T
-                    rhoR = rhoR.reshape(-1, ngrids)
+                func = getattr(vR_dot_dm, mydf.vR_dot_dm_version, None)
+                vR_dm = func(mo1T, mo2T, coulg, blksize=blksize, mesh=mesh)
 
-                    rhoG = tools.fft(rhoR, mesh)
-                    vG = rhoG * coulg
-                    rhoR = rhoG = None
-
-                    vR = tools.ifft(vG, mesh).reshape(i1 - i0, nmo2, ngrids)
-                    vR_dm_i0i1 = contract('ijg,jg->ig', vR, mo2T[0].conj())
-                    vR = vG = None
-
-                    if dtype == np.float64:
-                        vR_dm_i0i1 = vR_dm_i0i1.real
-                    vR_dm[i0:i1] += vR_dm_i0i1
+                vk_k1 += cp.dot(vR_dm, ao1) * weight
+                vR_dm = None
             
             ovlp1 = mydf.ovlp_kpts[k1]
-            vk_k1 = cp.dot(vR_dm, ao1) * weight
             vk_kpts[s, k1] = get_full_jks(ovlp1, vk_k1, cocc1)
 
     if exxdiv == 'ewald':
@@ -135,6 +126,7 @@ def get_k_kpts_occri(mydf, dm_kpts, hermi=1, kpts=np.zeros((1,3)),
 
 class OccRI(fft.FFTDF):
     blksize = 32
+    vR_dot_dm_version = "_version2"
 
     def __init__(self, cell, kpts):
         super().__init__(cell, kpts)
@@ -170,8 +162,7 @@ class OccRI(fft.FFTDF):
         nocc = max(cell.nelec)
         blksize = min(self.blksize, nocc)
         log.info('nao = %d, nocc = %d, blksize = %d', nao, nocc, blksize)
-        log.info('rhoR memory usage = %6.2e GB', blksize * nocc * ngrids * 16 / 1e9)
-        log.info('ao_kpts memory usage = %6.2e GB', nkpts * nao * ngrids * 16 / 1e9)
+        log.info('vR_dot_dm_version = %s', self.vR_dot_dm_version)
 
         return self
 
@@ -198,8 +189,3 @@ class OccRI(fft.FFTDF):
                 vk = get_k_kpts_occri(self, dm, hermi, kpts, kpts_band, exxdiv)
 
         return vj, vk
-
-    # def get_pp(self, kpts=None):
-    #     import get_pp
-    #     return get_pp.get_pp(self, kpts)
-        

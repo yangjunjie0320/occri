@@ -75,14 +75,16 @@ def load_library(libname):
     except OSError:
         raise
 
-@time_range("vR_dot_dm_version3")
 def _version3(mo1T, mo2T, coulg, blksize=16, mesh=None):
     import ctypes    
     nmo1 = mo1T.shape[0]
     nmo2 = mo2T.shape[0]
 
     ngrids = int(cp.prod(mesh))
-    coulg = cp.asarray(coulg * 1.0 / ngrids, dtype=cp.complex128)
+    factor = 1.0 / ngrids
+    coulg = coulg * factor
+
+    assert coulg.dtype == cp.complex128
     
     out = cp.zeros((nmo1, ngrids), dtype=cp.complex128)
     work = cp.zeros((blksize, ngrids), dtype=cp.complex128)

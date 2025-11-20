@@ -1,0 +1,12 @@
+SLURMD_NODENAME = hpc-33-16
+Start time = Wed Nov 19 03:34:48 PM PST 2025
+CUDA_VISIBLE_DEVICES = 0
+OMP_NUM_THREADS = 32
+MKL_NUM_THREADS = 4
+OPENBLAS_NUM_THREADS = 4
+PYSCF_MAX_MEMORY = 327680
+TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/55050427/
+PYSCF_TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/55050427/
+err12 = 1.07e-14
+err13 = 1.52e-14
+err23 = 1.81e-14
