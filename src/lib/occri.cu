@@ -61,9 +61,7 @@ __global__ void vR_mo2Tconj_to_out(
         sum = cuCadd(sum, cuCmul(xig, yig));
     }
     
-    // Accumulate to output (atomic add for real and imag parts)
-    atomicAdd(&out[g].x, sum.x);
-    atomicAdd(&out[g].y, sum.y);
+    out[g] = sum;
 }
 
 extern "C" int OccRI_vR_dot_dm(
