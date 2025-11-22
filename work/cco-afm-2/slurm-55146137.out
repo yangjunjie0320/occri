@@ -1,0 +1,248 @@
+SLURMD_NODENAME = hpc-33-16
+Start time = Fri Nov 21 11:32:03 PM PST 2025
+CUDA_VISIBLE_DEVICES = 0
+OMP_NUM_THREADS = 32
+MKL_NUM_THREADS = 4
+OPENBLAS_NUM_THREADS = 4
+PYSCF_MAX_MEMORY = 327680
+TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/55146137/
+PYSCF_TMPDIR = /resnick/scratch/yangjunjie//gpu4pyscf-occri/55146137/
+Using GPU device 0
+Free memory: 78.65 GB
+Total memory: 79.19 GB
+poscar_path: /resnick/groups/changroup/members/junjiey/occri/packages/cuprate_parent_state_data/01_crystal_geometry/CCO/CCO-AFM-frac.vasp
+Discarded 14 diffused primitive functions, 0 contracted functions
+#INFO: **** input file is /resnick/groups/changroup/members/junjiey/occri/occri-main/work/cco-afm-2/main.py ****
+import cupy as cp
+
+device = cp.cuda.Device()
+print(f"Using GPU device {device.id}")
+
+mem_info = cp.cuda.runtime.memGetInfo()
+print(f"Free memory: {mem_info[0] / (1024**3):.2f} GB")
+print(f"Total memory: {mem_info[1] / (1024**3):.2f} GB")
+
+import pyscf, gpu4pyscf
+from pyscf.pbc import gto
+import gpu4pyscf.pbc
+
+import sys, pathlib
+poscar_path = pathlib.Path("/resnick/groups/changroup/members/junjiey/occri/packages/")
+poscar_path = poscar_path / "cuprate_parent_state_data/01_crystal_geometry/CCO/CCO-AFM-frac.vasp"
+assert poscar_path.exists()
+
+path = str(poscar_path)
+print(f"poscar_path: {path}")
+
+from libdmet.utils.iotools import read_poscar
+pcell = read_poscar(path)
+pcell.basis = 'gth-dzvp-molopt-sr'
+pcell.pseudo = "gth-hf-rev"
+pcell.ke_cutoff = 200
+pcell.exp_to_discard = 0.1
+pcell.verbose = 5
+pcell.build()
+
+kpts = pcell.make_kpts([2, 2, 1])
+
+alph_label = ["0 Cu 3dx2-y2"]
+beta_label = ["1 Cu 3dx2-y2"]
+alph_ix = pcell.search_ao_label(alph_label)
+beta_ix = pcell.search_ao_label(beta_label)
+
+from gpu4pyscf.pbc.scf import KRHF, KUHF
+mf = KUHF(pcell, kpts)
+mf.verbose = 5
+mf.conv_tol = 1e-6
+mf.max_cycle = 50
+mf.diis_space = 4
+mf.exxdiv = None
+dm0 = mf.get_init_guess(key='minao')
+
+dm0[0, :, alph_ix, alph_ix] *= 2.0
+dm0[1, :, beta_ix, beta_ix] *= 2.0
+dm0[0, :, beta_ix, beta_ix] *= 0.0
+dm0[1, :, alph_ix, alph_ix] *= 0.0
+
+from fftdf import FFTDF
+mf.with_df = FFTDF(pcell, kpts, with_occri=True, use_gpu=True)
+mf.with_df.blksize = 32
+mf.with_df._mo_is_missing = "fftdf"
+
+mf.kernel(dm0)
+ene_sol = mf.e_tot
+
+from gpu4pyscf.pbc.df.fft import FFTDF
+mf.with_df = FFTDF(pcell, kpts)
+mf.kernel(dm0)
+ene_ref = mf.e_tot
+
+print("ene_ref = %12.6f" % ene_ref)
+print("ene_sol = %12.6f" % ene_sol)
+print("error   = %6.2e" % abs(ene_ref - ene_sol))
+#INFO: ******************** input file end ********************
+
+
+System: uname_result(system='Linux', node='hpc-33-16.cm.cluster', release='5.14.0-427.13.1.el9_4.x86_64', version='#1 SMP PREEMPT_DYNAMIC Wed Apr 10 10:29:16 EDT 2024', machine='x86_64')  Threads 32
+Python 3.12.12 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 20:16:04) [GCC 11.2.0]
+numpy 2.2.6  scipy 1.16.3  h5py 3.15.1
+Date: Fri Nov 21 23:32:10 2025
+PySCF version 2.8.0
+PySCF path  /home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/pyscf/__init__.py
+CUDA Environment
+    CuPy 13.4.1
+    CUDA Path /home/junjiey/anaconda3/envs/gpu4pyscf-occri
+    CUDA Build Version 12080
+    CUDA Driver Version 12080
+    CUDA Runtime Version 12080
+CUDA toolkit
+    cuSolver (11, 7, 2)
+    cuBLAS 120804
+    cuTENSOR 20200
+Device info
+    Device name b'NVIDIA H100 80GB HBM3'
+    Device global memory 79.19 GB
+    CuPy memory fraction 0.9
+    Num. Devices 1
+GPU4PySCF 1.4.3
+GPU4PySCF path  /home/junjiey/anaconda3/envs/gpu4pyscf-occri/lib/python3.12/site-packages/gpu4pyscf
+
+[ENV] PYSCF_TMPDIR /resnick/scratch/yangjunjie//gpu4pyscf-occri/55146137/
+[ENV] PYSCF_MAX_MEMORY 327680
+[CONFIG] conf_file None
+[INPUT] verbose = 5
+[INPUT] max_memory = 327680 
+[INPUT] num. atoms = 8
+[INPUT] num. electrons = 82
+[INPUT] charge = 0
+[INPUT] spin (= nelec alpha-beta = 2S) = 0
+[INPUT] symmetry False subgroup None
+[INPUT] Mole.unit = A
+[INPUT] Symbol           X                Y                Z      unit          X                Y                Z       unit  Magmom
+[INPUT]  1 Cu     1.927800000000   0.000000000000   1.590250000000 AA    3.643014022937   0.000000000000   3.005136969590 Bohr   0.0
+[INPUT]  2 Cu     5.783400000000  -0.000000000000   1.590250000000 AA   10.929042068810  -0.000000000000   3.005136969590 Bohr   0.0
+[INPUT]  3 O1     3.855600000000  -3.855600000000   1.590250000000 AA    7.286028045873  -7.286028045873   3.005136969590 Bohr   0.0
+[INPUT]  4 O1     3.855600000000   0.000000000000   1.590250000000 AA    7.286028045873   0.000000000000   3.005136969590 Bohr   0.0
+[INPUT]  5 O1     1.927800000000   1.927800000000   1.590250000000 AA    3.643014022937   3.643014022937   3.005136969590 Bohr   0.0
+[INPUT]  6 O1     5.783400000000   1.927800000000   1.590250000000 AA   10.929042068810   3.643014022937   3.005136969590 Bohr   0.0
+[INPUT]  7 Ca     3.855600000000   1.927800000000   0.000000000000 AA    7.286028045873   3.643014022937   0.000000000000 Bohr   0.0
+[INPUT]  8 Ca     3.855600000000  -1.927800000000   0.000000000000 AA    7.286028045873  -3.643014022937   0.000000000000 Bohr   0.0
+[INPUT] ---------------- BASIS SET ---------------- 
+[INPUT] l, kappa, [nprim/nctr], expnt,             c_1 c_2 ...
+[INPUT] Cu
+[INPUT] 0    0    [5    /2   ]  5.80405115073     0.02091810039 0.045720931893
+                                2.94777759308     -0.106208582202 -0.094026024883
+                                1.27162120797     0.307397740339 -0.110623536813
+                                0.51717376786     0.240805274553 -0.742218346329
+                                0.198006620331    -0.798718095004 2.20810737271
+[INPUT] 1    0    [5    /2   ]  5.80405115073     -0.004381592772 -0.021109803873
+                                2.94777759308     0.017185613995 0.020960301873
+                                1.27162120797     -0.089805629814 0.233442747472
+                                0.51717376786     0.05441512666 0.369266430953
+                                0.198006620331    0.446326740476 -1.4050671297
+[INPUT] 2    0    [5    /2   ]  5.80405115073     0.275442696345 -0.101811263028
+                                2.94777759308     0.351705110927 -0.207670618594
+                                1.27162120797     0.33163596964 -0.224161904198
+                                0.51717376786     0.259386540456 0.176105738988
+                                0.198006620331    0.151105835782 0.210534119173
+[INPUT] 3    0    [5    /1   ]  5.80405115073     -0.016523760157
+                                2.94777759308     0.055142365254
+                                1.27162120797     -0.28665608976
+                                0.51717376786     -0.502349311598
+                                0.198006620331    -0.508940020577
+[INPUT] O1
+[INPUT] 0    0    [5    /2   ]  10.3892280183     0.1262407229 0.0692157979
+                                3.84962107201     0.1399337043 0.1156345389
+                                1.38840118874     -0.4343482317 -0.3228397194
+                                0.496955043655    -0.8527917909 -0.0959440166
+                                0.16249161504     -0.2423515378 1.1028303487
+[INPUT] 1    0    [5    /2   ]  10.3892280183     -0.0613020372 -0.0268627011
+                                3.84962107201     -0.1900875117 -0.006283021
+                                1.38840118874     -0.3777269828 -0.2248391878
+                                0.496955043655    -0.454266086 0.3803246586
+                                0.16249161504     -0.257388983 1.0541029199
+[INPUT] 2    0    [5    /1   ]  10.3892280183     0.0298452275
+                                3.84962107201     0.0609397339
+                                1.38840118874     0.7323215801
+                                0.496955043655    0.8935649184
+                                0.16249161504     0.1529541887
+[INPUT] Ca
+[INPUT] 0    0    [5    /3   ]  5.28498559656     -0.416182629697 -0.083912217567 -0.208574685974
+                                4.09175222912     0.887610504052 0.216895453968 0.314510703283
+                                1.42952032176     -0.323549926958 -0.096935550443 -0.601923136001
+                                0.614375507986    -0.908395199325 -0.502206578258 2.85361497501
+                                0.242970577562    -0.208971576432 -0.096821746914 -3.04328735203
+[INPUT] 1    0    [5    /2   ]  5.28498559656     0.064960038145 0.026515439739
+                                4.09175222912     0.014546526081 -0.02899796995
+                                1.42952032176     -0.466720491908 -0.07324385119
+                                0.614375507986    -0.634030899528 -0.218228118923
+                                0.242970577562    -0.251681593814 0.144907690867
+[INPUT] 2    0    [5    /1   ]  5.28498559656     -0.06663075251
+                                4.09175222912     0.197842850864
+                                1.42952032176     0.45836517156
+                                0.614375507986    0.372585742208
+                                0.242970577562    0.820156666086
+
+Ewald components = 28.2566464530734, -347.472106272704, 10.6691858461942
+nuclear repulsion = -308.546273973437
+number of shells = 26
+number of NR pGTOs = 430
+number of NR cGTOs = 130
+basis = gth-dzvp-molopt-sr
+ecp = {}
+CPU time:         3.00
+lattice vectors  a1 [7.286028046, -7.286028046, 0.000000000]
+                 a2 [7.286028046, 7.286028046, 0.000000000]
+                 a3 [0.000000000, 0.000000000, 6.010273939]
+dimension = 3
+low_dim_ft_type = None
+Cell volume = 638.125
+exp_to_discard = 0.1
+rcut = 18.873693607578385 (nimgs = [2 2 4])
+lattice sum = 177 cells
+precision = 1e-08
+pseudo = gth-hf-rev
+ke_cutoff = 200
+    = [67 67 41] mesh (184049 PWs)
+Density of valence part of ANO basis will be used as initial guess for Cu
+Density of valence part of ANO basis will be used as initial guess for Ca
+Big error detected in the electron number of initial guess density matrix (Ne/cell = 38.6207)!
+  This can cause huge error in Fock matrix and lead to instability in SCF for low-dimensional systems.
+  DM is normalized wrt the number of electrons [41. 41.]
+
+
+******** <class 'gpu4pyscf.pbc.scf.kuhf.KUHF'> ********
+method = KUHF
+initial guess = minao
+damping factor = 0
+level_shift factor = 0
+DIIS = <class 'gpu4pyscf.scf.diis.CDIIS'>
+diis_start_cycle = 1
+diis_space = 4
+diis_damp = 0
+SCF conv_tol = 1e-06
+SCF conv_tol_grad = None
+SCF max_cycles = 50
+direct_scf = True
+direct_scf_tol = 1e-13
+max_memory 327680 MB (current use 2204 MB)
+
+
+******** PBC SCF flags ********
+N kpts = 4
+kpts = [[ 0.          0.          0.        ]
+ [ 0.21559021  0.21559021  0.        ]
+ [ 0.21559021 -0.21559021  0.        ]
+ [ 0.43118042  0.          0.        ]]
+Exchange divergence treatment (exxdiv) = None
+DF object = <fftdf.OccRI object at 0x7fb00bf55d90>
+number of electrons per cell  alpha = 164 beta = 164
+cond(S) = [851.36007013 859.27679027 859.27679027 912.34785181]
+Set gradient conv threshold to 0.001
+
+
+******** <class 'fftdf.OccRI'> ********
+mesh = [67 67 41] (184049 PWs)
+nkpts = 4
+nao = 130, nocc = 41, blksize = 32
+_mo_is_missing = fftdf
